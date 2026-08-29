@@ -805,7 +805,7 @@ class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
                 }
               }
 
-              // Precalculate Pin Points and Non-Overlapping Badge Positions with guaranteed distance from dots
+              // Precalculate Pin Points and Non-Overlapping Badge Positions with exact measurement
               final layout = _calculateBadgeLayout(
                 renderW: renderW,
                 renderH: renderH,
@@ -916,7 +916,7 @@ class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
                     ),
                   )
                 else if (_isProcessing)
-                  // Engaging Dynamic Scanning Status Pill (1.8s interval)
+                  // Engaging Dynamic Scanning Status Pill (warm, funny phrases)
                   const _ScanningStatusPill(),
 
                 const SizedBox(width: 44), // balance spacing
@@ -1039,7 +1039,7 @@ class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
           height: 18,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: Colors.white.withValues(alpha: 0.3),
+            color: Colors.white.withValues(alpha: 0.35),
           ),
           alignment: Alignment.center,
           child: Container(
@@ -1050,7 +1050,7 @@ class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
               color: Colors.white,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black54,
+                  color: Colors.black87,
                   blurRadius: 4,
                   offset: Offset(0, 1),
                 ),
@@ -1194,7 +1194,7 @@ class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
     );
   }
 
-  /// Calculates center pins and non-overlapping badge positions with guaranteed distance from dots
+  /// Calculates center pins and non-overlapping badge positions with pixel-perfect measurement
   List<_BadgeLayoutItem> _calculateBadgeLayout({
     required double renderW,
     required double renderH,
@@ -1207,6 +1207,7 @@ class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
   }) {
     final List<_BadgeLayoutItem> items = [];
 
+    // Step 1: Initial position & exact width measurement for all items
     for (int i = 0; i < _recognizedItems.length; i++) {
       final product = _recognizedItems[i];
       final box = product.box2d;
@@ -1226,33 +1227,48 @@ class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
         dotY = offsetY + (centerY / 1000.0) * renderH;
         dotX = offsetX + (centerX / 1000.0) * renderW;
       } else {
-        // Fallback default grid distribution
-        final row = i % 4;
-        final col = (i ~/ 4);
-        dotX = offsetX + 50 + (row * ((renderW - 100) / 3));
-        dotY = offsetY + 120 + (col * 140);
+        // Fallback grid distribution
+        final row = i % 3;
+        final col = (i ~/ 3);
+        dotX = offsetX + 60 + (row * ((renderW - 120) / 2));
+        dotY = offsetY + 120 + (col * 150);
       }
 
-      // Compact width estimation for Emoji + Name
-      final estimatedW = (product.name.length * 8.5 + 32.0).clamp(60.0, 140.0);
+      // Exact pixel width measurement with TextPainter
+      final tp = TextPainter(
+        text: TextSpan(
+          text: '${product.emoji}  ${product.name}',
+          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+        ),
+        textDirection: TextDirection.ltr,
+        maxLines: 1,
+      )..layout();
 
-      // Decision: place badge to the left or right of the dot, keeping clear distance
-      final isOnLeftSide = dotX < (screenW / 2);
-      double badgeX = isOnLeftSide ? (dotX + 40.0) : (dotX - estimatedW - 40.0);
+      final exactW = tp.width + 24.0; // padding 10*2 + icon margin
+      final isOnLeftSide = dotX <= (screenW * 0.5);
+
+      // Smart lateral placement:
+      // If dot is on the left half -> badge on left margin or offset to right of dot if dot is far left
+      double badgeX;
+      if (isOnLeftSide) {
+        if (dotX < 70) {
+          badgeX = dotX + 38.0; // Place to the right of the dot
+        } else {
+          badgeX = 14.0; // Place on left screen margin
+        }
+      } else {
+        if (dotX > screenW - 70) {
+          badgeX = dotX - exactW - 38.0; // Place to the left of the dot
+        } else {
+          badgeX = screenW - exactW - 14.0; // Place on right screen margin
+        }
+      }
+
       double badgeY = dotY - 14.0;
 
       // Keep strictly within screen bounds
-      badgeX = badgeX.clamp(14.0, screenW - estimatedW - 14.0);
+      badgeX = badgeX.clamp(12.0, screenW - exactW - 12.0);
       badgeY = badgeY.clamp(topPadding + 64.0, screenH - bottomPadding - 100.0);
-
-      // Guarantee minimum horizontal separation between dot and badge (NEVER cover the dot)
-      if (dotX >= badgeX - 6 && dotX <= badgeX + estimatedW + 6) {
-        if (isOnLeftSide) {
-          badgeX = (dotX + 40.0).clamp(14.0, screenW - estimatedW - 14.0);
-        } else {
-          badgeX = (dotX - estimatedW - 40.0).clamp(14.0, screenW - estimatedW - 14.0);
-        }
-      }
 
       items.add(
         _BadgeLayoutItem(
@@ -1262,23 +1278,39 @@ class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
           dotY: dotY.clamp(offsetY + 8, offsetY + renderH - 8),
           badgeX: badgeX,
           badgeY: badgeY,
-          estimatedBadgeWidth: estimatedW,
+          exactBadgeWidth: exactW,
         ),
       );
     }
 
-    // Sort by vertical position and apply relaxation pass
-    items.sort((a, b) => a.badgeY.compareTo(b.badgeY));
-    const minVerticalGap = 34.0;
+    // Step 2: Ensure NO badge covers ANY dot
+    const badgeH = 28.0;
+    for (final b in items) {
+      for (final d in items) {
+        final badgeRect = Rect.fromLTWH(b.badgeX - 12, b.badgeY - 10, b.exactBadgeWidth + 24, badgeH + 20);
+        if (badgeRect.contains(Offset(d.dotX, d.dotY))) {
+          // Dot is covered! Push badge away
+          if (b.dotX <= screenW * 0.5) {
+            b.badgeX = (d.dotX + 36.0).clamp(12.0, screenW - b.exactBadgeWidth - 12.0);
+          } else {
+            b.badgeX = (d.dotX - b.exactBadgeWidth - 36.0).clamp(12.0, screenW - b.exactBadgeWidth - 12.0);
+          }
+        }
+      }
+    }
 
-    for (int step = 0; step < 2; step++) {
+    // Step 3: Vertical relaxation pass for left and right columns
+    items.sort((a, b) => a.badgeY.compareTo(b.badgeY));
+    const minVerticalGap = 36.0;
+
+    for (int step = 0; step < 3; step++) {
       for (int i = 1; i < items.length; i++) {
         final prev = items[i - 1];
         final curr = items[i];
 
         // Check if both badges overlap horizontally
-        final isHorizOverlap = (curr.badgeX < prev.badgeX + prev.estimatedBadgeWidth + 10) &&
-            (curr.badgeX + curr.estimatedBadgeWidth > prev.badgeX - 10);
+        final isHorizOverlap = (curr.badgeX < prev.badgeX + prev.exactBadgeWidth + 8) &&
+            (curr.badgeX + curr.exactBadgeWidth > prev.badgeX - 8);
 
         if (isHorizOverlap && (curr.badgeY - prev.badgeY).abs() < minVerticalGap) {
           curr.badgeY = (prev.badgeY + minVerticalGap).clamp(topPadding + 64.0, screenH - bottomPadding - 100.0);
@@ -1297,7 +1329,7 @@ class _BadgeLayoutItem {
   final double dotY;
   double badgeX;
   double badgeY;
-  final double estimatedBadgeWidth;
+  final double exactBadgeWidth;
 
   _BadgeLayoutItem({
     required this.index,
@@ -1306,7 +1338,7 @@ class _BadgeLayoutItem {
     required this.dotY,
     required this.badgeX,
     required this.badgeY,
-    required this.estimatedBadgeWidth,
+    required this.exactBadgeWidth,
   });
 }
 
@@ -1319,41 +1351,45 @@ class _ConnectingLinesPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final linePaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.65)
+      ..color = Colors.white.withValues(alpha: 0.7)
       ..strokeWidth = 1.3
       ..style = PaintingStyle.stroke;
 
     final dotHaloPaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.22)
+      ..color = Colors.white.withValues(alpha: 0.25)
       ..style = PaintingStyle.fill;
 
     for (final item in layout) {
       canvas.drawCircle(Offset(item.dotX, item.dotY), 7, dotHaloPaint);
 
-      final badgeW = item.estimatedBadgeWidth;
+      final badgeW = item.exactBadgeWidth;
       const badgeH = 28.0;
 
       double targetX, targetY;
 
-      // Calculate exact attachment point on the badge boundary (zero gaps)
-      if (item.dotX < item.badgeX) {
-        // Dot is to the left of the badge -> connect directly to left edge
+      // Exact docking to the correct edge of the badge
+      if (item.dotX <= item.badgeX) {
+        // Dot is to the left of the badge -> connect directly to LEFT edge
         targetX = item.badgeX;
         targetY = item.badgeY + (badgeH / 2);
-      } else if (item.dotX > item.badgeX + badgeW) {
-        // Dot is to the right of the badge -> connect directly to right edge
+      } else if (item.dotX >= item.badgeX + badgeW) {
+        // Dot is to the right of the badge -> connect directly to RIGHT edge
         targetX = item.badgeX + badgeW;
         targetY = item.badgeY + (badgeH / 2);
-      } else {
-        // Vertically aligned -> connect to top or bottom edge
+      } else if (item.dotY < item.badgeY) {
+        // Dot is above the badge -> connect to TOP edge
         targetX = item.badgeX + (badgeW / 2);
-        targetY = item.dotY < item.badgeY ? item.badgeY : item.badgeY + badgeH;
+        targetY = item.badgeY;
+      } else {
+        // Dot is below the badge -> connect to BOTTOM edge
+        targetX = item.badgeX + (badgeW / 2);
+        targetY = item.badgeY + badgeH;
       }
 
       final path = Path();
       path.moveTo(item.dotX, item.dotY);
 
-      // Smooth, natural continuous curve with zero interruption
+      // Smooth, natural continuous curve directly to the badge edge
       final midX = (item.dotX + targetX) / 2;
       path.cubicTo(
         midX, item.dotY,
@@ -1369,7 +1405,7 @@ class _ConnectingLinesPainter extends CustomPainter {
   bool shouldRepaint(covariant _ConnectingLinesPainter oldDelegate) => true;
 }
 
-/// Dynamic, engaging scanning status pill with cycling phrases (1.8s interval)
+/// Dynamic, engaging scanning status pill with warm, funny, delightful phrases (1.8s interval)
 class _ScanningStatusPill extends StatefulWidget {
   const _ScanningStatusPill();
 
@@ -1382,11 +1418,14 @@ class _ScanningStatusPillState extends State<_ScanningStatusPill> {
   Timer? _timer;
 
   final _phrases = [
-    'Gemini Vision сканирует...',
-    'Распознавание объектов...',
-    'Считывание упаковок...',
-    'Оценка сроков хранения...',
-    'Расстановка AR-меток...',
+    'Ищу сыр... Он точно где-то здесь 🧀',
+    'Вглядываюсь в глубины полок... 👀',
+    'Что же в той закрытой миске? 🍲',
+    'Договариваюсь с йогуртом не портиться 🥛',
+    'Считаю запасы на нижней полке 🥟',
+    'Определяю, чей это контейнер... 🕵️‍♂️',
+    'Изучаю состав кулинарных шедевров 👨‍🍳',
+    'Почти готово, навожу красоту! ✨',
   ];
 
   @override
@@ -1416,7 +1455,7 @@ class _ScanningStatusPillState extends State<_ScanningStatusPill> {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
           decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: 0.35),
+            color: Colors.black.withValues(alpha: 0.38),
             borderRadius: BorderRadius.circular(20),
           ),
           child: Row(
