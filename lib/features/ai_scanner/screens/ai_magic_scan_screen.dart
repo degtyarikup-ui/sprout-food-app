@@ -18,7 +18,8 @@ class AiMagicScanScreen extends ConsumerStatefulWidget {
 }
 
 class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
-  int _selectedMode = 1; // Default: 1 = Полка холодильника, 0 = Чек, 2 = Текст
+  int _selectedMode = 1; // 0 = Чек, 1 = Продукты, 2 = Текст списка
+  int _viewMode = 0; // 0 = Фото с AR-точками, 1 = Список
   bool _isProcessing = false;
   bool _hasScanned = false;
   String? _errorMessage;
@@ -32,8 +33,8 @@ class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
     try {
       final XFile? photo = await _picker.pickImage(
         source: source,
-        maxWidth: 1800,
-        maxHeight: 1800,
+        maxWidth: 1440,
+        maxHeight: 2560, // 9:16 vertical high resolution
         imageQuality: 88,
       );
 
@@ -48,6 +49,7 @@ class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
         _decodedImage = frameInfo.image;
         _isProcessing = true;
         _hasScanned = false;
+        _viewMode = 0;
         _errorMessage = null;
         _recognizedItems = [];
       });
@@ -291,9 +293,9 @@ class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
                           border: Border.all(color: AppColors.cardBorder),
                         ),
                         child: DropdownButton<String>(
-                          value: ['шт', 'г', 'кг', 'мл', 'л', 'уп'].contains(unit) ? unit : 'шт',
+                          value: ['шт', 'г', 'кг', 'мл', 'л', 'уп', 'пачка', 'банка', 'блюдо'].contains(unit) ? unit : 'шт',
                           underline: const SizedBox(),
-                          items: ['шт', 'г', 'кг', 'мл', 'л', 'уп'].map((u) {
+                          items: ['шт', 'г', 'кг', 'мл', 'л', 'уп', 'пачка', 'банка', 'блюдо'].map((u) {
                             return DropdownMenuItem(value: u, child: Text(u));
                           }).toList(),
                           onChanged: (val) {
@@ -495,7 +497,7 @@ class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 32),
                       child: Text(
                         isProducts
-                            ? 'ИИ выделит каждый найденный продукт рамкой прямо на фото'
+                            ? 'ИИ поставит точку в центре каждого продукта с линией к блюр-плашке'
                             : 'Распознает все позиции, цены и сроки хранения',
                         textAlign: TextAlign.center,
                         style: AppTypography.bodySmall,
@@ -505,7 +507,7 @@ class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
                     ElevatedButton.icon(
                       onPressed: () => _pickImage(ImageSource.camera),
                       icon: const Icon(Icons.camera_alt_rounded, size: 20),
-                      label: const Text('Сделать снимок'),
+                      label: const Text('Сделать снимок (9:16)'),
                       style: ElevatedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
                       ),
@@ -606,43 +608,58 @@ class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
     );
   }
 
-  /// Full-Screen AR Visual Object Detection View directly over the captured photo
+  /// Full-Screen AR Visual Object Detection View directly over the captured 9:16 photo
   Widget _buildFullScreenVisualScanView() {
+    final topPadding = MediaQuery.of(context).padding.top;
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
+
     return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(
         fit: StackFit.expand,
         children: [
-          // Full Screen Captured Image with Object Detection Bounding Boxes
+          // Full Screen Photo View (when in photo mode or during scan)
           LayoutBuilder(
             builder: (context, constraints) {
-              final boxW = constraints.maxWidth;
-              final boxH = constraints.maxHeight;
+              final screenW = constraints.maxWidth;
+              final screenH = constraints.maxHeight;
 
-              final imgW = _decodedImage?.width.toDouble() ?? boxW;
-              final imgH = _decodedImage?.height.toDouble() ?? boxH;
+              final imgW = _decodedImage?.width.toDouble() ?? screenW;
+              final imgH = _decodedImage?.height.toDouble() ?? screenH;
 
-              final imgAspect = (imgW > 0 && imgH > 0) ? imgW / imgH : boxW / boxH;
-              final boxAspect = boxW / boxH;
+              final imgAspect = (imgW > 0 && imgH > 0) ? imgW / imgH : screenW / screenH;
+              final boxAspect = screenW / screenH;
 
               double renderW, renderH;
               double offsetX = 0;
               double offsetY = 0;
 
               if (boxAspect > imgAspect) {
-                renderH = boxH;
-                renderW = boxH * imgAspect;
-                offsetX = (boxW - renderW) / 2;
+                renderH = screenH;
+                renderW = screenH * imgAspect;
+                offsetX = (screenW - renderW) / 2;
               } else {
-                renderW = boxW;
-                renderH = boxW / imgAspect;
-                offsetY = (boxH - renderH) / 2;
+                renderW = screenW;
+                renderH = screenW / imgAspect;
+                offsetY = (screenH - renderH) / 2;
               }
+
+              // Precalculate Pin Points and Non-Overlapping Badge Positions
+              final layout = _calculateBadgeLayout(
+                renderW: renderW,
+                renderH: renderH,
+                offsetX: offsetX,
+                offsetY: offsetY,
+                screenW: screenW,
+                screenH: screenH,
+                topPadding: topPadding,
+                bottomPadding: bottomPadding,
+              );
 
               return Stack(
                 fit: StackFit.expand,
                 children: [
-                  // Captured Photo
+                  // Photo Background
                   Center(
                     child: SizedBox(
                       width: renderW,
@@ -654,32 +671,42 @@ class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
                   // Scanning Beam Animation while processing
                   if (_isProcessing) const _ScannerBeam(),
 
-                  // Recognized Object Bounding Boxes & Tags
-                  if (!_isProcessing && _hasScanned)
-                    ..._buildVisualBoundingBoxes(
-                      renderW: renderW,
-                      renderH: renderH,
-                      offsetX: offsetX,
-                      offsetY: offsetY,
+                  // If in Photo Mode and not processing: Render connecting lines and badges
+                  if (!_isProcessing && _hasScanned && _viewMode == 0) ...[
+                    // Custom Painter for Connecting Lines ("Палочки")
+                    CustomPaint(
+                      size: Size(screenW, screenH),
+                      painter: _ConnectingLinesPainter(layout: layout),
                     ),
+
+                    // Center Dot Pins on Products
+                    ...layout.map((item) => _buildCenterDot(item)),
+
+                    // Frosted Glass Badges without Outlines
+                    ...layout.map((item) => _buildFrostedBadge(item)),
+                  ],
+
+                  // If in List Mode: Render scrollable frosted list over photo
+                  if (!_isProcessing && _hasScanned && _viewMode == 1)
+                    _buildFrostedListView(topPadding, bottomPadding),
                 ],
               );
             },
           ),
 
-          // Top Header (Back button + Status Pill)
+          // Top Header: Back Button + Mode Switcher Tabs (📸 Фото / 📋 Список)
           Positioned(
-            top: MediaQuery.of(context).padding.top + 8,
+            top: topPadding + 8,
             left: 16,
             right: 16,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                // Frosted Close Button
+                // Frosted Back Button
                 ClipRRect(
                   borderRadius: BorderRadius.circular(22),
                   child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                    filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
                     child: GestureDetector(
                       onTap: () {
                         HapticFeedback.lightImpact();
@@ -703,51 +730,58 @@ class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
                   ),
                 ),
 
-                // Frosted Scanning/Result Status Pill
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(20),
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.45),
-                        borderRadius: BorderRadius.circular(20),
+                // Top Segmented Switcher: [ 📸 Фото | 📋 Список (N) ]
+                if (!_isProcessing && _hasScanned)
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(22),
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+                      child: Container(
+                        padding: const EdgeInsets.all(3),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.45),
+                          borderRadius: BorderRadius.circular(22),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _buildViewModePill(0, 'Фото', Icons.camera_alt_outlined),
+                            _buildViewModePill(1, 'Список (${_recognizedItems.length})', Icons.list_alt_rounded),
+                          ],
+                        ),
                       ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (_isProcessing) ...[
-                            const SizedBox(
+                    ),
+                  )
+                else if (_isProcessing)
+                  // Processing status pill
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(20),
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.45),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            SizedBox(
                               width: 14,
                               height: 14,
                               child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                             ),
-                            const SizedBox(width: 8),
-                            const Text(
-                              'ИИ распознает объекты...',
-                              style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
-                            ),
-                          ] else if (_recognizedItems.isNotEmpty) ...[
-                            const Icon(Icons.check_circle_rounded, color: Colors.greenAccent, size: 16),
-                            const SizedBox(width: 6),
+                            SizedBox(width: 8),
                             Text(
-                              'Найдено: ${_recognizedItems.length} поз.',
-                              style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
-                            ),
-                          ] else ...[
-                            const Icon(Icons.info_outline_rounded, color: Colors.white70, size: 16),
-                            const SizedBox(width: 6),
-                            const Text(
-                              'Продукты не обнаружены',
+                              'ИИ ставит точки...',
                               style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
                             ),
                           ],
-                        ],
+                        ),
                       ),
                     ),
                   ),
-                ),
 
                 const SizedBox(width: 44), // balance spacing
               ],
@@ -756,7 +790,7 @@ class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
 
           // Bottom Action Bar: Retake & Add to Fridge
           Positioned(
-            bottom: MediaQuery.of(context).padding.bottom + 16,
+            bottom: bottomPadding + 16,
             left: 16,
             right: 16,
             child: _isProcessing
@@ -767,7 +801,7 @@ class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
                       ClipRRect(
                         borderRadius: BorderRadius.circular(18),
                         child: BackdropFilter(
-                          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                          filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
                           child: GestureDetector(
                             onTap: () {
                               HapticFeedback.lightImpact();
@@ -777,9 +811,8 @@ class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
                               height: 52,
                               padding: const EdgeInsets.symmetric(horizontal: 16),
                               decoration: BoxDecoration(
-                                color: Colors.black.withValues(alpha: 0.5),
+                                color: Colors.black.withValues(alpha: 0.45),
                                 borderRadius: BorderRadius.circular(18),
-                                border: Border.all(color: Colors.white24),
                               ),
                               child: const Row(
                                 children: [
@@ -826,19 +859,234 @@ class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
     );
   }
 
-  List<Widget> _buildVisualBoundingBoxes({
+  Widget _buildViewModePill(int mode, String label, IconData icon) {
+    final isSelected = _viewMode == mode;
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.selectionClick();
+        setState(() => _viewMode = mode);
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.white.withValues(alpha: 0.25) : Colors.transparent,
+          borderRadius: BorderRadius.circular(18),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14, color: isSelected ? Colors.white : Colors.white70),
+            const SizedBox(width: 5),
+            Text(
+              label,
+              style: TextStyle(
+                color: isSelected ? Colors.white : Colors.white70,
+                fontSize: 12,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Center Pin Dot placed exactly on the recognized food item
+  Widget _buildCenterDot(_BadgeLayoutItem item) {
+    return Positioned(
+      left: item.dotX - 9,
+      top: item.dotY - 9,
+      child: GestureDetector(
+        onTap: () => _showEditItemSheet(item.product, item.index),
+        child: Container(
+          width: 18,
+          height: 18,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: Colors.white.withValues(alpha: 0.3),
+          ),
+          alignment: Alignment.center,
+          child: Container(
+            width: 8,
+            height: 8,
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black45,
+                  blurRadius: 4,
+                  offset: Offset(0, 1),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Frosted Glass Badge with ZERO border outline and soft shadow
+  Widget _buildFrostedBadge(_BadgeLayoutItem item) {
+    return Positioned(
+      left: item.badgeX,
+      top: item.badgeY,
+      child: GestureDetector(
+        onTap: () => _showEditItemSheet(item.product, item.index),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(14),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.48), // Translucent frosted blur without outline
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.3),
+                    blurRadius: 10,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(item.product.emoji, style: const TextStyle(fontSize: 14)),
+                  const SizedBox(width: 5),
+                  Text(
+                    item.product.name,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      shadows: [
+                        Shadow(
+                          color: Colors.black54,
+                          blurRadius: 6,
+                          offset: Offset(0, 1),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    '${item.product.amount.toStringAsFixed(item.product.amount % 1 == 0 ? 0 : 1)} ${item.product.unit}',
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  const Icon(Icons.edit, size: 10, color: Colors.white54),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Frosted List View for review when switching to the "Список" tab
+  Widget _buildFrostedListView(double topPadding, double bottomPadding) {
+    return Positioned.fill(
+      top: topPadding + 64,
+      bottom: bottomPadding + 80,
+      child: ClipRRect(
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+          child: Container(
+            color: Colors.black.withValues(alpha: 0.72),
+            child: ListView.builder(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              itemCount: _recognizedItems.length,
+              itemBuilder: (context, index) {
+                final item = _recognizedItems[index];
+                return Dismissible(
+                  key: Key('scan_${item.name}_$index'),
+                  direction: DismissDirection.endToStart,
+                  background: Container(
+                    alignment: Alignment.centerRight,
+                    padding: const EdgeInsets.only(right: 16),
+                    decoration: BoxDecoration(
+                      color: AppColors.statusUrgent,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: const Icon(Icons.delete_outline_rounded, color: Colors.white),
+                  ),
+                  onDismissed: (_) => _removeItem(index),
+                  child: Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Row(
+                      children: [
+                        Text(item.emoji, style: const TextStyle(fontSize: 22)),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                item.name,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                '${item.amount.toStringAsFixed(item.amount % 1 == 0 ? 0 : 1)} ${item.unit} • ${item.category} • ${item.daysUntilExpiry} дн.',
+                                style: const TextStyle(color: Colors.white70, fontSize: 12),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.edit_outlined, color: Colors.white70, size: 20),
+                          onPressed: () => _showEditItemSheet(item, index),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close_rounded, color: Colors.white38, size: 20),
+                          onPressed: () => _removeItem(index),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Calculates center pins and non-overlapping badge positions with relaxation
+  List<_BadgeLayoutItem> _calculateBadgeLayout({
     required double renderW,
     required double renderH,
     required double offsetX,
     required double offsetY,
+    required double screenW,
+    required double screenH,
+    required double topPadding,
+    required double bottomPadding,
   }) {
-    final List<Widget> widgets = [];
+    final List<_BadgeLayoutItem> items = [];
 
     for (int i = 0; i < _recognizedItems.length; i++) {
-      final item = _recognizedItems[i];
-      final box = item.box2d;
+      final product = _recognizedItems[i];
+      final box = product.box2d;
 
-      double top, left, width, height;
+      double dotX, dotY;
 
       if (box != null && box.length == 4) {
         final ymin = box[0];
@@ -846,103 +1094,120 @@ class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
         final ymax = box[2];
         final xmax = box[3];
 
-        top = offsetY + (ymin / 1000.0) * renderH;
-        left = offsetX + (xmin / 1000.0) * renderW;
-        width = ((xmax - xmin).abs() / 1000.0) * renderW;
-        height = ((ymax - ymin).abs() / 1000.0) * renderH;
+        // Center point of the detected object
+        final centerY = (ymin + ymax) / 2.0;
+        final centerX = (xmin + xmax) / 2.0;
 
-        // Ensure minimum reasonable dimensions for interaction
-        if (width < 60) width = 60;
-        if (height < 60) height = 60;
+        dotY = offsetY + (centerY / 1000.0) * renderH;
+        dotX = offsetX + (centerX / 1000.0) * renderW;
       } else {
-        // Fallback staggered placement if no box2d returned
-        final row = i % 3;
-        final col = (i ~/ 3);
-        width = 120;
-        height = 100;
-        left = offsetX + 20 + (row * 110);
-        top = offsetY + 80 + (col * 120);
+        // Fallback default grid distribution
+        final row = i % 4;
+        final col = (i ~/ 4);
+        dotX = offsetX + 50 + (row * ((renderW - 100) / 3));
+        dotY = offsetY + 120 + (col * 140);
       }
 
-      widgets.add(
-        Positioned(
-          top: top.clamp(offsetY, offsetY + renderH - 60),
-          left: left.clamp(offsetX, offsetX + renderW - 80),
-          child: GestureDetector(
-            onTap: () => _showEditItemSheet(item, i),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Interactive Frosted Product Capsule Badge
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.7),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.white70, width: 1.2),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.4),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(item.emoji, style: const TextStyle(fontSize: 14)),
-                          const SizedBox(width: 4),
-                          Text(
-                            item.name,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            '${item.amount.toStringAsFixed(item.amount % 1 == 0 ? 0 : 1)} ${item.unit}',
-                            style: const TextStyle(
-                              color: Colors.white70,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          const Icon(Icons.edit, size: 10, color: Colors.white60),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 3),
+      // Initial desired badge placement (offset above / to the side of the dot)
+      final isOnLeftSide = dotX < (screenW / 2);
+      double badgeX = isOnLeftSide ? (dotX + 16) : (dotX - 160);
+      double badgeY = dotY - 26;
 
-                // Corner-Accented Bounding Box Frame
-                Container(
-                  width: width,
-                  height: height,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: Colors.white.withValues(alpha: 0.65), width: 1.5),
-                  ),
-                ),
-              ],
-            ),
-          ),
+      badgeX = badgeX.clamp(14.0, screenW - 180.0);
+      badgeY = badgeY.clamp(topPadding + 64.0, screenH - bottomPadding - 100.0);
+
+      items.add(
+        _BadgeLayoutItem(
+          index: i,
+          product: product,
+          dotX: dotX.clamp(offsetX + 8, offsetX + renderW - 8),
+          dotY: dotY.clamp(offsetY + 8, offsetY + renderH - 8),
+          badgeX: badgeX,
+          badgeY: badgeY,
         ),
       );
     }
 
-    return widgets;
+    // Anti-collision relaxation pass on badge vertical coordinates
+    items.sort((a, b) => a.badgeY.compareTo(b.badgeY));
+    const minVerticalGap = 36.0;
+
+    for (int i = 1; i < items.length; i++) {
+      final prev = items[i - 1];
+      final curr = items[i];
+
+      // Check if both badges are horizontally close (overlapping)
+      if ((curr.badgeX - prev.badgeX).abs() < 130) {
+        if (curr.badgeY < prev.badgeY + minVerticalGap) {
+          curr.badgeY = prev.badgeY + minVerticalGap;
+        }
+      }
+    }
+
+    return items;
   }
+}
+
+class _BadgeLayoutItem {
+  final int index;
+  final ProductItem product;
+  final double dotX;
+  final double dotY;
+  double badgeX;
+  double badgeY;
+
+  _BadgeLayoutItem({
+    required this.index,
+    required this.product,
+    required this.dotX,
+    required this.dotY,
+    required this.badgeX,
+    required this.badgeY,
+  });
+}
+
+/// CustomPainter that draws elegant connecting leader lines ("палочки") from center dots to badges
+class _ConnectingLinesPainter extends CustomPainter {
+  final List<_BadgeLayoutItem> layout;
+
+  _ConnectingLinesPainter({required this.layout});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final linePaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.5)
+      ..strokeWidth = 1.2
+      ..style = PaintingStyle.stroke;
+
+    final dotHaloPaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.25)
+      ..style = PaintingStyle.fill;
+
+    for (final item in layout) {
+      // Connect dot to badge anchor
+      final targetX = item.badgeX > item.dotX ? item.badgeX : item.badgeX + 140;
+      final targetY = item.badgeY + 16;
+
+      // Draw subtle halo behind the dot
+      canvas.drawCircle(Offset(item.dotX, item.dotY), 6, dotHaloPaint);
+
+      final path = Path();
+      path.moveTo(item.dotX, item.dotY);
+
+      // Smooth elbow bezier curve to badge
+      final midX = (item.dotX + targetX) / 2;
+      path.cubicTo(
+        midX, item.dotY,
+        midX, targetY,
+        targetX, targetY,
+      );
+
+      canvas.drawPath(path, linePaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _ConnectingLinesPainter oldDelegate) => true;
 }
 
 /// Scanning radar beam animation
