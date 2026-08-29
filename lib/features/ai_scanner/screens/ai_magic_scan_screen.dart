@@ -398,7 +398,7 @@ class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
               child: Row(
                 children: [
                   _buildTabButton(0, 'Кассовый чек'),
-                  _buildTabButton(1, 'Полка холодильника'),
+                  _buildTabButton(1, 'Продукты'),
                   _buildTabButton(2, 'Текст списка'),
                 ],
               ),
@@ -453,7 +453,7 @@ class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
   }
 
   Widget _buildInitialCameraView() {
-    final isFridge = _selectedMode == 1;
+    final isProducts = _selectedMode == 1;
 
     return Padding(
       padding: const EdgeInsets.all(20),
@@ -475,26 +475,26 @@ class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
                     Container(
                       width: 80,
                       height: 80,
-                      decoration: BoxDecoration(
+                      decoration: const BoxDecoration(
                         color: AppColors.surfaceMuted,
                         shape: BoxShape.circle,
                       ),
                       child: Icon(
-                        isFridge ? Icons.kitchen_outlined : Icons.receipt_long_outlined,
+                        isProducts ? Icons.lunch_dining_outlined : Icons.receipt_long_outlined,
                         size: 38,
                         color: AppColors.textPrimary,
                       ),
                     ),
                     const SizedBox(height: 20),
                     Text(
-                      isFridge ? 'Сфотографируйте холодильник' : 'Сфотографируйте чек',
+                      isProducts ? 'Сфотографируйте продукты' : 'Сфотографируйте чек',
                       style: AppTypography.titleLarge.copyWith(fontWeight: FontWeight.w700),
                     ),
                     const SizedBox(height: 8),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 32),
                       child: Text(
-                        isFridge
+                        isProducts
                             ? 'ИИ выделит каждый найденный продукт рамкой прямо на фото'
                             : 'Распознает все позиции, цены и сроки хранения',
                         textAlign: TextAlign.center,
