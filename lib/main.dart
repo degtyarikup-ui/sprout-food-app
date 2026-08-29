@@ -4,10 +4,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'core/theme/app_theme.dart';
 import 'features/navigation/main_scaffold.dart';
+import 'features/onboarding/providers/onboarding_provider.dart';
+import 'features/onboarding/screens/onboarding_quiz_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   // Set system UI overlay style
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
@@ -26,18 +28,22 @@ void main() async {
   );
 }
 
-class SproutApp extends StatelessWidget {
+class SproutApp extends ConsumerWidget {
   const SproutApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final hasCompletedOnboarding = ref.watch(onboardingProvider);
+
     return MaterialApp(
       title: 'Sprout — Умная Еда',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: ThemeMode.system,
-      home: const MainScaffold(),
+      home: hasCompletedOnboarding
+          ? const MainScaffold()
+          : const OnboardingQuizScreen(),
     );
   }
 }

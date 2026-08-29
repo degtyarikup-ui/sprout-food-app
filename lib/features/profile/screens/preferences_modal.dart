@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../onboarding/screens/onboarding_quiz_screen.dart';
 import '../models/user_preferences.dart';
 import '../providers/user_preferences_provider.dart';
 
@@ -173,7 +174,7 @@ class PreferencesModal extends ConsumerWidget {
           ),
           const SizedBox(height: 24),
 
-          // Done Button
+          // Apply Button
           SizedBox(
             width: double.infinity,
             height: 48,
@@ -195,6 +196,25 @@ class PreferencesModal extends ConsumerWidget {
                 );
               },
               child: const Text('Применить', style: TextStyle(fontWeight: FontWeight.w700)),
+            ),
+          ),
+          const SizedBox(height: 10),
+
+          // Re-run Onboarding Quiz Trigger
+          Center(
+            child: TextButton.icon(
+              onPressed: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const OnboardingQuizScreen()),
+                );
+              },
+              icon: const Icon(Icons.auto_awesome_rounded, size: 16, color: AppColors.primary),
+              label: const Text(
+                'Пересоставить рацион с нуля (Квиз)',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.primary),
+              ),
             ),
           ),
         ],
