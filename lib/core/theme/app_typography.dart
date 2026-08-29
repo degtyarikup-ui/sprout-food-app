@@ -3,84 +3,84 @@ import 'package:google_fonts/google_fonts.dart';
 import 'app_colors.dart';
 
 class AppTypography {
-  static TextStyle get displayLarge => GoogleFonts.outfit(
+  static TextStyle get displayLarge => GoogleFonts.onest(
         fontSize: 32,
-        fontWeight: FontWeight.w700,
-        letterSpacing: -0.8,
-        color: AppColors.textPrimary,
-      );
-
-  static TextStyle get displayMedium => GoogleFonts.outfit(
-        fontSize: 26,
         fontWeight: FontWeight.w700,
         letterSpacing: -0.6,
         color: AppColors.textPrimary,
       );
 
-  static TextStyle get titleLarge => GoogleFonts.plusJakartaSans(
-        fontSize: 20,
+  static TextStyle get displayMedium => GoogleFonts.onest(
+        fontSize: 26,
         fontWeight: FontWeight.w700,
-        letterSpacing: -0.4,
+        letterSpacing: -0.5,
         color: AppColors.textPrimary,
       );
 
-  static TextStyle get titleMedium => GoogleFonts.plusJakartaSans(
+  static TextStyle get titleLarge => GoogleFonts.onest(
+        fontSize: 20,
+        fontWeight: FontWeight.w700,
+        letterSpacing: -0.3,
+        color: AppColors.textPrimary,
+      );
+
+  static TextStyle get titleMedium => GoogleFonts.onest(
         fontSize: 16,
         fontWeight: FontWeight.w600,
         letterSpacing: -0.2,
         color: AppColors.textPrimary,
       );
 
-  static TextStyle get titleSmall => GoogleFonts.plusJakartaSans(
+  static TextStyle get titleSmall => GoogleFonts.onest(
         fontSize: 14,
         fontWeight: FontWeight.w600,
         color: AppColors.textPrimary,
       );
 
-  static TextStyle get bodyLarge => GoogleFonts.plusJakartaSans(
+  static TextStyle get bodyLarge => GoogleFonts.onest(
         fontSize: 15,
         fontWeight: FontWeight.w400,
         color: AppColors.textPrimary,
         height: 1.4,
       );
 
-  static TextStyle get bodyMedium => GoogleFonts.plusJakartaSans(
+  static TextStyle get bodyMedium => GoogleFonts.onest(
         fontSize: 13,
         fontWeight: FontWeight.w400,
         color: AppColors.textSecondary,
         height: 1.4,
       );
 
-  static TextStyle get bodySmall => GoogleFonts.plusJakartaSans(
+  static TextStyle get bodySmall => GoogleFonts.onest(
         fontSize: 11,
         fontWeight: FontWeight.w400,
         color: AppColors.textSecondary,
       );
 
-  static TextStyle get labelLarge => GoogleFonts.plusJakartaSans(
+  static TextStyle get labelLarge => GoogleFonts.onest(
         fontSize: 14,
         fontWeight: FontWeight.w700,
         letterSpacing: 0.1,
         color: AppColors.primaryForeground,
       );
 
-  static TextStyle get labelMedium => GoogleFonts.plusJakartaSans(
+  static TextStyle get labelMedium => GoogleFonts.onest(
         fontSize: 12,
         fontWeight: FontWeight.w600,
         color: AppColors.textPrimary,
       );
 
-  static TextStyle get labelSmall => GoogleFonts.plusJakartaSans(
+  static TextStyle get labelSmall => GoogleFonts.onest(
         fontSize: 10,
         fontWeight: FontWeight.w600,
-        letterSpacing: 0.3,
+        letterSpacing: 0.2,
         color: AppColors.textSecondary,
       );
 
-  static TextStyle get numberMetric => GoogleFonts.outfit(
+  static TextStyle get numberMetric => GoogleFonts.onest(
         fontSize: 28,
         fontWeight: FontWeight.w700,
-        letterSpacing: -0.5,
+        letterSpacing: -0.4,
         color: AppColors.textPrimary,
       );
 }
