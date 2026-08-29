@@ -238,7 +238,7 @@ class GeminiAIService {
   }) async {
     final key = apiKey;
     final url = Uri.parse(
-        'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$key');
+        'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=$key');
 
     final List<Map<String, dynamic>> parts = [
       {'text': prompt}
