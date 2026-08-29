@@ -224,7 +224,26 @@ class GroceryScreen extends ConsumerWidget {
                                 child: const Icon(Icons.delete_outline_rounded, color: Colors.white),
                               ),
                               onDismissed: (_) {
+                                HapticFeedback.mediumImpact();
                                 ref.read(groceryProvider.notifier).removeItem(item.id);
+                                ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('${item.name} удален из списка'),
+                                    duration: const Duration(seconds: 5),
+                                    behavior: SnackBarBehavior.floating,
+                                    backgroundColor: AppColors.primary,
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                    action: SnackBarAction(
+                                      label: 'Отменить',
+                                      textColor: Colors.white,
+                                      onPressed: () {
+                                        HapticFeedback.lightImpact();
+                                        ref.read(groceryProvider.notifier).undoLastDeletedItem();
+                                      },
+                                    ),
+                                  ),
+                                );
                               },
                               child: Padding(
                                 padding: const EdgeInsets.symmetric(vertical: 4),

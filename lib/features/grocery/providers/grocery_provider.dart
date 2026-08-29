@@ -111,8 +111,32 @@ class GroceryNotifier extends StateNotifier<List<GroceryItem>> {
     _persist();
   }
 
+  GroceryItem? _lastDeletedItem;
+  int? _lastDeletedIndex;
+
+  GroceryItem? get lastDeletedItem => _lastDeletedItem;
+
   void removeItem(String id) {
+    final index = state.indexWhere((item) => item.id == id);
+    if (index != -1) {
+      _lastDeletedItem = state[index];
+      _lastDeletedIndex = index;
+    }
     state = state.where((item) => item.id != id).toList();
+    _persist();
+  }
+
+  void undoLastDeletedItem() {
+    if (_lastDeletedItem == null) return;
+    final item = _lastDeletedItem!;
+    final index = (_lastDeletedIndex != null && _lastDeletedIndex! <= state.length)
+        ? _lastDeletedIndex!
+        : 0;
+    final updated = List<GroceryItem>.from(state);
+    updated.insert(index, item);
+    state = updated;
+    _lastDeletedItem = null;
+    _lastDeletedIndex = null;
     _persist();
   }
 

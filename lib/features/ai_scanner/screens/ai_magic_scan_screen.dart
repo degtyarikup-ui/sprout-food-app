@@ -134,9 +134,37 @@ class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
   }
 
   void _removeItem(int index) {
+    if (index < 0 || index >= _recognizedItems.length) return;
+    final item = _recognizedItems[index];
     setState(() {
       _recognizedItems.removeAt(index);
     });
+
+    HapticFeedback.lightImpact();
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('${item.name} удален из списка'),
+        duration: const Duration(seconds: 5),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: AppColors.primary,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        action: SnackBarAction(
+          label: 'Отменить',
+          textColor: Colors.white,
+          onPressed: () {
+            HapticFeedback.lightImpact();
+            setState(() {
+              if (index <= _recognizedItems.length) {
+                _recognizedItems.insert(index, item);
+              } else {
+                _recognizedItems.add(item);
+              }
+            });
+          },
+        ),
+      ),
+    );
   }
 
   void _showApiKeyDialog() {

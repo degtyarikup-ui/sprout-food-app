@@ -106,13 +106,33 @@ class FridgeNotifier extends StateNotifier<List<ProductItem>> {
     await _persist();
   }
 
-  Future<void> addMultipleProducts(List<ProductItem> items) async {
-    state = [...items, ...state];
+  ProductItem? _lastDeletedProduct;
+  int? _lastDeletedIndex;
+
+  ProductItem? get lastDeletedProduct => _lastDeletedProduct;
+
+  Future<ProductItem?> removeProduct(String id) async {
+    final index = state.indexWhere((item) => item.id == id);
+    if (index != -1) {
+      _lastDeletedProduct = state[index];
+      _lastDeletedIndex = index;
+    }
+    state = state.where((item) => item.id != id).toList();
     await _persist();
+    return _lastDeletedProduct;
   }
 
-  Future<void> removeProduct(String id) async {
-    state = state.where((item) => item.id != id).toList();
+  Future<void> undoLastDeletedProduct() async {
+    if (_lastDeletedProduct == null) return;
+    final item = _lastDeletedProduct!;
+    final index = (_lastDeletedIndex != null && _lastDeletedIndex! <= state.length)
+        ? _lastDeletedIndex!
+        : 0;
+    final updated = List<ProductItem>.from(state);
+    updated.insert(index, item);
+    state = updated;
+    _lastDeletedProduct = null;
+    _lastDeletedIndex = null;
     await _persist();
   }
 

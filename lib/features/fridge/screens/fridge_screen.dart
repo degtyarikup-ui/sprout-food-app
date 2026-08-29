@@ -228,10 +228,22 @@ class _FridgeScreenState extends ConsumerState<FridgeScreen> {
       onDismissed: (_) {
         HapticFeedback.mediumImpact();
         ref.read(fridgeProvider.notifier).removeProduct(item.id);
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('${item.name} удален'),
-            duration: const Duration(seconds: 2),
+            duration: const Duration(seconds: 5),
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: AppColors.primary,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            action: SnackBarAction(
+              label: 'Отменить',
+              textColor: Colors.white,
+              onPressed: () {
+                HapticFeedback.lightImpact();
+                ref.read(fridgeProvider.notifier).undoLastDeletedProduct();
+              },
+            ),
           ),
         );
       },
@@ -281,16 +293,28 @@ class _FridgeScreenState extends ConsumerState<FridgeScreen> {
             ),
             const SizedBox(width: 4),
 
-            // Quick Done action
+            // Quick Done / Consume action with 5-second undo
             IconButton(
               icon: const Icon(Icons.check_rounded, size: 18, color: AppColors.textTertiary),
               onPressed: () {
                 HapticFeedback.lightImpact();
                 ref.read(fridgeProvider.notifier).removeProduct(item.id);
+                ScaffoldMessenger.of(context).hideCurrentSnackBar();
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text('${item.name} использован'),
-                    duration: const Duration(seconds: 1),
+                    duration: const Duration(seconds: 5),
+                    behavior: SnackBarBehavior.floating,
+                    backgroundColor: AppColors.primary,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    action: SnackBarAction(
+                      label: 'Отменить',
+                      textColor: Colors.white,
+                      onPressed: () {
+                        HapticFeedback.lightImpact();
+                        ref.read(fridgeProvider.notifier).undoLastDeletedProduct();
+                      },
+                    ),
                   ),
                 );
               },
