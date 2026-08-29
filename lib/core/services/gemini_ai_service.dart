@@ -240,6 +240,96 @@ class GeminiAIService {
     );
   }
 
+  /// Generates custom chef recipes from current fridge products
+  static Future<List<Recipe>> generateRecipesFromFridge(List<ProductItem> fridgeItems) async {
+    if (!hasApiKey) {
+      throw Exception('API-ключ не указан. Добавьте ключ Gemini API.');
+    }
+
+    final productNames = fridgeItems.map((p) => '${p.name} (${p.amount} ${p.unit})').join(', ');
+    final prompt = '''
+Ты — профессиональный шеф-повар и нутрициолог в кулинарном приложении Sprout.
+У пользователя в холодильнике сейчас есть следующие продукты:
+$productNames
+
+Придумай 2-3 аппетитных, простых и реалистичных блюда, которые можно приготовить ПРЕИМУЩЕСТВЕННО из этих продуктов (с минимальным добавлением базовых ингредиентов вроде соли, перца, масла, воды).
+Удели особое внимание продуктам с коротким сроком годности (Zero-Waste подход).
+
+Верни строго JSON массив объектов:
+[
+  {
+    "title": "Название блюда",
+    "description": "Краткое аппетитное описание (1-2 предложения)",
+    "category": "Завтрак",
+    "tags": ["Быстро (15 мин)", "Высокий белок", "Zero-Waste"],
+    "prepTimeMinutes": 10,
+    "cookTimeMinutes": 15,
+    "defaultServings": 2,
+    "calories": 420,
+    "proteinGrams": 28,
+    "fatGrams": 18,
+    "carbsGrams": 32,
+    "imageUrl": "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=800",
+    "difficulty": "Легко",
+    "zeroWasteTip": "Полезный совет по безотходному использованию остатков",
+    "ingredients": [
+      { "name": "Куриные яйца", "amount": 2, "unit": "шт" }
+    ],
+    "steps": [
+      { "stepNumber": 1, "title": "Подготовка", "instruction": "Что делать", "timerDurationSeconds": 180 }
+    ]
+  }
+]
+Только чистый JSON массив без Markdown.
+''';
+
+    final response = await _callGeminiMultimodal(prompt: prompt);
+    final List<dynamic> decodedList = jsonDecode(_cleanJsonResponse(response));
+
+    final List<Recipe> recipes = [];
+    for (final decoded in decodedList) {
+      final ingredientsRaw = (decoded['ingredients'] as List<dynamic>?) ?? [];
+      final stepsRaw = (decoded['steps'] as List<dynamic>?) ?? [];
+
+      recipes.add(
+        Recipe(
+          id: 'r_ai_${DateTime.now().millisecondsSinceEpoch}_${recipes.length}',
+          title: decoded['title'] as String? ?? 'Блюдо от Шеф-ИИ',
+          description: decoded['description'] as String? ?? 'Приготовлено из продуктов вашего холодильника',
+          category: decoded['category'] as String? ?? 'Обед',
+          tags: (decoded['tags'] as List<dynamic>?)?.map((t) => t.toString()).toList() ?? ['Шеф-ИИ', 'Быстро'],
+          prepTimeMinutes: (decoded['prepTimeMinutes'] as num?)?.toInt() ?? 5,
+          cookTimeMinutes: (decoded['cookTimeMinutes'] as num?)?.toInt() ?? 15,
+          defaultServings: (decoded['defaultServings'] as num?)?.toInt() ?? 2,
+          calories: (decoded['calories'] as num?)?.toInt() ?? 400,
+          proteinGrams: (decoded['proteinGrams'] as num?)?.toInt() ?? 25,
+          fatGrams: (decoded['fatGrams'] as num?)?.toInt() ?? 15,
+          carbsGrams: (decoded['carbsGrams'] as num?)?.toInt() ?? 30,
+          imageUrl: decoded['imageUrl'] as String? ?? 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=800',
+          source: '✨ Шеф-ИИ Sprout',
+          difficulty: decoded['difficulty'] as String? ?? 'Легко',
+          zeroWasteTip: decoded['zeroWasteTip'] as String?,
+          ingredients: ingredientsRaw.map((i) {
+            return Ingredient(
+              name: i['name'] as String,
+              amount: (i['amount'] as num?)?.toDouble() ?? 1.0,
+              unit: i['unit'] as String? ?? 'шт',
+            );
+          }).toList(),
+          steps: stepsRaw.map((s) {
+            return CookingStep(
+              stepNumber: (s['stepNumber'] as num?)?.toInt() ?? 1,
+              title: s['title'] as String? ?? 'Шаг',
+              instruction: s['instruction'] as String? ?? '',
+              timerDurationSeconds: (s['timerDurationSeconds'] as num?)?.toInt(),
+            );
+          }).toList(),
+        ),
+      );
+    }
+    return recipes;
+  }
+
   /// Calls Gemini 3.6 Flash REST API (High performance, lowest cost)
   static Future<String> _callGeminiMultimodal({
     required String prompt,

@@ -1,0 +1,576 @@
+import 'dart:ui';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/services/gemini_ai_service.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_typography.dart';
+import '../../fridge/providers/fridge_provider.dart';
+import '../../grocery/models/grocery_item.dart';
+import '../../grocery/providers/grocery_provider.dart';
+import '../models/recipe.dart';
+import '../providers/recipes_provider.dart';
+import 'recipe_detail_screen.dart';
+
+class RecipeReelsView extends ConsumerStatefulWidget {
+  final List<RecipeWithMatchScore> recipes;
+
+  const RecipeReelsView({super.key, required this.recipes});
+
+  @override
+  ConsumerState<RecipeReelsView> createState() => _RecipeReelsViewState();
+}
+
+class _RecipeReelsViewState extends ConsumerState<RecipeReelsView> {
+  final PageController _pageController = PageController();
+  final Map<int, bool> _showHeartAnimation = {};
+
+  void _triggerDoubleTapLike(int index, Recipe recipe) {
+    HapticFeedback.mediumImpact();
+    if (!recipe.isFavorite) {
+      ref.read(recipesProvider.notifier).toggleFavorite(recipe.id);
+    }
+    setState(() {
+      _showHeartAnimation[index] = true;
+    });
+    Future.delayed(const Duration(milliseconds: 700), () {
+      if (mounted) {
+        setState(() {
+          _showHeartAnimation[index] = false;
+        });
+      }
+    });
+  }
+
+  void _addMissingToCart(List<String> missing, BuildContext context) {
+    if (missing.isEmpty) return;
+    HapticFeedback.lightImpact();
+    for (final item in missing) {
+      ref.read(groceryProvider.notifier).addItem(
+            GroceryItem(
+              name: item,
+              amount: 1,
+              unit: 'уп',
+              department: 'Бакалея',
+            ),
+          );
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: AppColors.surface,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        content: Row(
+          children: [
+            const Icon(Icons.check_circle_rounded, color: AppColors.primary, size: 20),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Добавлено в список покупок: ${missing.length} поз.',
+                style: const TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
+        ),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  Future<void> _generateAiRecipes() async {
+    final fridgeItems = ref.read(fridgeProvider);
+    if (fridgeItems.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: AppColors.surface,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          content: const Text(
+            'Сначала добавьте продукты в холодильник или отсканируйте их 📸',
+            style: TextStyle(color: AppColors.textPrimary),
+          ),
+        ),
+      );
+      return;
+    }
+
+    ref.read(isAiGeneratingRecipesProvider.notifier).state = true;
+    HapticFeedback.mediumImpact();
+
+    try {
+      final aiRecipes = await GeminiAIService.generateRecipesFromFridge(fridgeItems);
+      ref.read(recipesProvider.notifier).addRecipes(aiRecipes);
+      ref.read(recipeFeedFilterProvider.notifier).state = 0; // Show all in feed
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: AppColors.primary,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            content: Row(
+              children: [
+                const Icon(Icons.auto_awesome_rounded, color: AppColors.primaryForeground, size: 20),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Шеф-ИИ придумал ${aiRecipes.length} новых блюда из ваших продуктов!',
+                    style: const TextStyle(color: AppColors.primaryForeground, fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ],
+            ),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+        _pageController.animateToPage(
+          0,
+          duration: const Duration(milliseconds: 400),
+          curve: Curves.easeOutCubic,
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: AppColors.statusUrgent,
+            content: Text('Ошибка генерации: $e', style: const TextStyle(color: Colors.white)),
+          ),
+        );
+      }
+    } finally {
+      ref.read(isAiGeneratingRecipesProvider.notifier).state = false;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isGenerating = ref.watch(isAiGeneratingRecipesProvider);
+
+    if (widget.recipes.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.menu_book_rounded, size: 48, color: AppColors.primary),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                'В этой подборке пока пусто',
+                style: AppTypography.titleLarge,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Лайкайте блюда в ленте или попросите Шеф-ИИ придумать рецепт из ваших продуктов!',
+                style: AppTypography.bodyMedium,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton.icon(
+                onPressed: isGenerating ? null : _generateAiRecipes,
+                icon: isGenerating
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      )
+                    : const Icon(Icons.auto_awesome_rounded, size: 18),
+                label: Text(isGenerating ? 'Шеф-ИИ думает...' : '✨ Придумать блюдо из продуктов'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Stack(
+      children: [
+        PageView.builder(
+          controller: _pageController,
+          scrollDirection: Axis.vertical,
+          itemCount: widget.recipes.length,
+          itemBuilder: (context, index) {
+            final scored = widget.recipes[index];
+            final recipe = scored.recipe;
+            final isHeartVisible = _showHeartAnimation[index] ?? false;
+
+            return GestureDetector(
+              onDoubleTap: () => _triggerDoubleTapLike(index, recipe),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  // Full Bleed Image
+                  _buildRecipeImage(recipe.imageUrl),
+
+                  // Cinematic Dark Vignette & Gradient Overlays
+                  Positioned.fill(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.black.withValues(alpha: 0.45),
+                            Colors.transparent,
+                            Colors.black.withValues(alpha: 0.5),
+                            Colors.black.withValues(alpha: 0.92),
+                          ],
+                          stops: const [0.0, 0.25, 0.55, 1.0],
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  // Animated Double-Tap Heart Burst
+                  if (isHeartVisible)
+                    Center(
+                      child: TweenAnimationBuilder<double>(
+                        tween: Tween(begin: 0.0, end: 1.0),
+                        duration: const Duration(milliseconds: 350),
+                        curve: Curves.elasticOut,
+                        builder: (context, val, child) {
+                          return Transform.scale(
+                            scale: val,
+                            child: const Icon(
+                              Icons.favorite_rounded,
+                              color: Colors.redAccent,
+                              size: 110,
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+
+                  // Bottom Recipe Info Area
+                  Positioned(
+                    left: 16,
+                    right: 80,
+                    bottom: 32,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Fridge Match Badge
+                        _buildMatchBadge(scored),
+                        const SizedBox(height: 10),
+
+                        // Title
+                        Text(
+                          recipe.title,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 22,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.3,
+                            height: 1.2,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+
+                        // Description
+                        Text(
+                          recipe.description,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.85),
+                            fontSize: 13,
+                            height: 1.3,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+
+                        // Metrics Pill Row (Calories, Protein, Cook Time)
+                        SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            children: [
+                              _buildMetricChip('⏱ ${recipe.totalTimeMinutes} мин'),
+                              const SizedBox(width: 6),
+                              _buildMetricChip('🔥 ${recipe.calories} ккал'),
+                              const SizedBox(width: 6),
+                              _buildMetricChip('🥩 ${recipe.proteinGrams}г белка'),
+                              if (recipe.fatGrams > 0) ...[
+                                const SizedBox(width: 6),
+                                _buildMetricChip('🥑 ${recipe.fatGrams}г жиров'),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Right Side Floating Action Bar (Like, Cook, Add to Cart, AI)
+                  Positioned(
+                    right: 14,
+                    bottom: 36,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Like Button
+                        _buildActionButton(
+                          icon: recipe.isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                          iconColor: recipe.isFavorite ? Colors.redAccent : Colors.white,
+                          label: recipe.isFavorite ? 'В подборке' : 'Лайк',
+                          onTap: () {
+                            HapticFeedback.lightImpact();
+                            ref.read(recipesProvider.notifier).toggleFavorite(recipe.id);
+                          },
+                        ),
+                        const SizedBox(height: 18),
+
+                        // Cook / Recipe Details
+                        _buildActionButton(
+                          icon: Icons.menu_book_rounded,
+                          iconColor: Colors.white,
+                          label: 'Рецепт',
+                          onTap: () {
+                            HapticFeedback.lightImpact();
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => RecipeDetailScreen(recipe: recipe),
+                              ),
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 18),
+
+                        // Add Missing to Cart
+                        if (scored.missingIngredients.isNotEmpty) ...[
+                          _buildActionButton(
+                            icon: Icons.add_shopping_cart_rounded,
+                            iconColor: AppColors.primary,
+                            label: '+В список',
+                            badgeCount: scored.missingIngredients.length,
+                            onTap: () => _addMissingToCart(scored.missingIngredients, context),
+                          ),
+                          const SizedBox(height: 18),
+                        ],
+
+                        // AI Chef Generator Trigger
+                        _buildActionButton(
+                          icon: Icons.auto_awesome_rounded,
+                          iconColor: Colors.amberAccent,
+                          label: 'Шеф-ИИ',
+                          onTap: _generateAiRecipes,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+
+        // AI Loading Overlay
+        if (isGenerating)
+          Positioned.fill(
+            child: ClipRect(
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+                child: Container(
+                  color: Colors.black.withValues(alpha: 0.6),
+                  child: Center(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+                      decoration: BoxDecoration(
+                        color: AppColors.surface,
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(color: AppColors.cardBorder),
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const CircularProgressIndicator(color: AppColors.primary),
+                          const SizedBox(height: 20),
+                          Text('Шеф-ИИ изучает продукты...', style: AppTypography.titleMedium),
+                          const SizedBox(height: 6),
+                          Text(
+                            'Придумываем авторские рецепты под ваш холодильник 🍳',
+                            style: AppTypography.bodySmall,
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildRecipeImage(String imageUrl) {
+    if (imageUrl.startsWith('assets/')) {
+      return Image.asset(
+        imageUrl,
+        fit: BoxFit.cover,
+        errorBuilder: (_, _, _) => Container(color: AppColors.surfaceMuted),
+      );
+    }
+    return Image.network(
+      imageUrl,
+      fit: BoxFit.cover,
+      loadingBuilder: (context, child, progress) {
+        if (progress == null) return child;
+        return Container(
+          color: const Color(0xFF1E2022),
+          child: const Center(
+            child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+          ),
+        );
+      },
+      errorBuilder: (_, _, _) => Container(color: const Color(0xFF1E2022)),
+    );
+  }
+
+  Widget _buildMatchBadge(RecipeWithMatchScore scored) {
+    final isFull = scored.matchPercentage >= 99;
+    final hasSome = scored.availableIngredients > 0;
+
+    final Color badgeBg = isFull
+        ? const Color(0xFF1B5E20).withValues(alpha: 0.75)
+        : hasSome
+            ? const Color(0xFFE65100).withValues(alpha: 0.75)
+            : Colors.black.withValues(alpha: 0.45);
+
+    final String text = isFull
+        ? '✨ 100% есть в вашем холодильнике'
+        : hasSome
+            ? '⚡ ${scored.availableIngredients} из ${scored.totalIngredients} продуктов дома'
+            : '🍽 Шеф-рецепт';
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          decoration: BoxDecoration(
+            color: badgeBg,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                text,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMetricChip(String label) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(10),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.4),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActionButton({
+    required IconData icon,
+    required Color iconColor,
+    required String label,
+    required VoidCallback onTap,
+    int? badgeCount,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        children: [
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(22),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+                  child: Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.38),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(icon, color: iconColor, size: 22),
+                  ),
+                ),
+              ),
+              if (badgeCount != null && badgeCount > 0)
+                Positioned(
+                  top: -3,
+                  right: -3,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: const BoxDecoration(
+                      color: AppColors.primary,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Text(
+                      '$badgeCount',
+                      style: const TextStyle(
+                        color: AppColors.primaryForeground,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.9),
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+              shadows: const [
+                Shadow(color: Colors.black54, blurRadius: 4),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

@@ -2,10 +2,13 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/services/gemini_ai_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../fridge/providers/fridge_provider.dart';
 import '../providers/recipes_provider.dart';
 import 'recipe_detail_screen.dart';
+import 'recipe_reels_view.dart';
 import 'social_importer_modal.dart';
 
 class RecipesScreen extends ConsumerWidget {
@@ -15,6 +18,11 @@ class RecipesScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final scoredRecipes = ref.watch(scoredRecipesProvider);
     final selectedCategory = ref.watch(selectedRecipeCategoryProvider);
+    final viewMode = ref.watch(recipeViewModeProvider);
+    final feedFilter = ref.watch(recipeFeedFilterProvider);
+    final fridgeCount = ref.watch(fridgeMatchCountProvider);
+    final favCount = ref.watch(favoriteRecipesCountProvider);
+    final isGenerating = ref.watch(isAiGeneratingRecipesProvider);
 
     final categories = ['Все', 'Завтрак', 'Обед', 'Ужин', 'Перекус'];
 
@@ -23,6 +31,39 @@ class RecipesScreen extends ConsumerWidget {
       appBar: AppBar(
         title: Text('Рецепты', style: AppTypography.displayMedium),
         actions: [
+          // View Mode Switcher: [ 🎬 Reels | 📋 Сетка ]
+          Container(
+            margin: const EdgeInsets.only(right: 8),
+            decoration: BoxDecoration(
+              color: AppColors.surfaceMuted,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildModeBtn(
+                  icon: Icons.movie_filter_outlined,
+                  isSelected: viewMode == 0,
+                  tooltip: 'Reels-лента',
+                  onTap: () {
+                    HapticFeedback.selectionClick();
+                    ref.read(recipeViewModeProvider.notifier).state = 0;
+                  },
+                ),
+                _buildModeBtn(
+                  icon: Icons.grid_view_rounded,
+                  isSelected: viewMode == 1,
+                  tooltip: 'Сетка рецептов',
+                  onTap: () {
+                    HapticFeedback.selectionClick();
+                    ref.read(recipeViewModeProvider.notifier).state = 1;
+                  },
+                ),
+              ],
+            ),
+          ),
+
+          // Import Link Button
           IconButton(
             icon: const Icon(Icons.link_rounded, size: 22),
             tooltip: 'Импорт из видео',
@@ -39,80 +80,257 @@ class RecipesScreen extends ConsumerWidget {
           const SizedBox(width: 8),
         ],
       ),
-      body: CustomScrollView(
-        slivers: [
-          // Category Selector Pills
-          SliverToBoxAdapter(
-            child: SizedBox(
-              height: 48,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                itemCount: categories.length,
-                itemBuilder: (context, index) {
-                  final cat = categories[index];
-                  final isSelected = selectedCategory == cat;
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: GestureDetector(
-                      onTap: () {
-                        HapticFeedback.selectionClick();
-                        ref.read(selectedRecipeCategoryProvider.notifier).state = cat;
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: isSelected ? AppColors.primary : AppColors.surface,
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: isSelected ? AppColors.primary : AppColors.cardBorder,
-                          ),
-                        ),
-                        alignment: Alignment.center,
-                        child: Text(
-                          cat,
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                            color: isSelected ? AppColors.primaryForeground : AppColors.textPrimary,
+      body: Column(
+        children: [
+          // Core Feed Filter Tabs: [ 🎬 Все | 🥑 Из холодильника (N) | ❤️ Моя подборка (N) ]
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  _buildFeedFilterPill(
+                    label: '🎬 Все блюда',
+                    isSelected: feedFilter == 0,
+                    onTap: () {
+                      HapticFeedback.selectionClick();
+                      ref.read(recipeFeedFilterProvider.notifier).state = 0;
+                    },
+                  ),
+                  const SizedBox(width: 8),
+                  _buildFeedFilterPill(
+                    label: '🥑 Из холодильника ($fridgeCount)',
+                    isSelected: feedFilter == 1,
+                    onTap: () {
+                      HapticFeedback.selectionClick();
+                      ref.read(recipeFeedFilterProvider.notifier).state = 1;
+                    },
+                  ),
+                  const SizedBox(width: 8),
+                  _buildFeedFilterPill(
+                    label: '❤️ Моя подборка ($favCount)',
+                    isSelected: feedFilter == 2,
+                    onTap: () {
+                      HapticFeedback.selectionClick();
+                      ref.read(recipeFeedFilterProvider.notifier).state = 2;
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // Main View: Reels (Vertical Full-Bleed Feed) OR Classic Grid List
+          Expanded(
+            child: viewMode == 0
+                ? RecipeReelsView(recipes: scoredRecipes)
+                : CustomScrollView(
+                    slivers: [
+                      // Category Selector Pills (only in grid mode)
+                      SliverToBoxAdapter(
+                        child: SizedBox(
+                          height: 44,
+                          child: ListView.builder(
+                            scrollDirection: Axis.horizontal,
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                            itemCount: categories.length,
+                            itemBuilder: (context, index) {
+                              final cat = categories[index];
+                              final isSelected = selectedCategory == cat;
+                              return Padding(
+                                padding: const EdgeInsets.only(right: 8),
+                                child: GestureDetector(
+                                  onTap: () {
+                                    HapticFeedback.selectionClick();
+                                    ref.read(selectedRecipeCategoryProvider.notifier).state = cat;
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                                    decoration: BoxDecoration(
+                                      color: isSelected ? AppColors.primary : AppColors.surface,
+                                      borderRadius: BorderRadius.circular(16),
+                                      border: Border.all(
+                                        color: isSelected ? AppColors.primary : AppColors.cardBorder,
+                                      ),
+                                    ),
+                                    alignment: Alignment.center,
+                                    child: Text(
+                                      cat,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                                        color: isSelected ? AppColors.primaryForeground : AppColors.textPrimary,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
                           ),
                         ),
                       ),
-                    ),
-                  );
-                },
-              ),
-            ),
-          ),
 
-          // Search Box
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: TextField(
-                onChanged: (val) => ref.read(searchQueryProvider.notifier).state = val,
-                decoration: const InputDecoration(
-                  hintText: 'Поиск блюд и ингредиентов...',
-                  prefixIcon: Icon(Icons.search_rounded, size: 20, color: AppColors.textTertiary),
-                ),
-              ),
-            ),
-          ),
+                      // Search Box (in grid mode)
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          child: TextField(
+                            onChanged: (val) => ref.read(searchQueryProvider.notifier).state = val,
+                            decoration: const InputDecoration(
+                              hintText: 'Поиск блюд и ингредиентов...',
+                              prefixIcon: Icon(Icons.search_rounded, size: 20, color: AppColors.textTertiary),
+                            ),
+                          ),
+                        ),
+                      ),
 
-          // Full-Bleed Food Photo Cards with Seamless Bottom Gradient
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 80),
-            sliver: SliverList(
-              delegate: SliverChildBuilderDelegate(
-                (context, index) {
-                  final item = scoredRecipes[index];
-                  return _buildSeamlessRecipeCard(context, item, ref);
-                },
-                childCount: scoredRecipes.length,
-              ),
-            ),
+                      // Full-Bleed Food Photo Cards
+                      SliverPadding(
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 80),
+                        sliver: SliverList(
+                          delegate: SliverChildBuilderDelegate(
+                            (context, index) {
+                              final item = scoredRecipes[index];
+                              return _buildSeamlessRecipeCard(context, item, ref);
+                            },
+                            childCount: scoredRecipes.length,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
           ),
         ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        backgroundColor: AppColors.primary,
+        foregroundColor: AppColors.primaryForeground,
+        elevation: 3,
+        onPressed: isGenerating ? null : () => _generateAiRecipes(context, ref),
+        icon: isGenerating
+            ? const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+              )
+            : const Icon(Icons.auto_awesome_rounded, size: 18),
+        label: Text(
+          isGenerating ? 'Шеф-ИИ думает...' : '✨ Шеф-ИИ по остаткам',
+          style: const TextStyle(fontWeight: FontWeight.w700),
+        ),
+      ),
+    );
+  }
+
+  static Future<void> _generateAiRecipes(BuildContext context, WidgetRef ref) async {
+    final fridgeItems = ref.read(fridgeProvider);
+    if (fridgeItems.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: AppColors.surface,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          content: const Text(
+            'Сначала добавьте продукты в холодильник или отсканируйте их 📸',
+            style: TextStyle(color: AppColors.textPrimary),
+          ),
+        ),
+      );
+      return;
+    }
+
+    ref.read(isAiGeneratingRecipesProvider.notifier).state = true;
+    HapticFeedback.mediumImpact();
+
+    try {
+      final aiRecipes = await GeminiAIService.generateRecipesFromFridge(fridgeItems);
+      ref.read(recipesProvider.notifier).addRecipes(aiRecipes);
+      ref.read(recipeFeedFilterProvider.notifier).state = 0; // Show all in feed
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: AppColors.primary,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            content: Row(
+              children: [
+                const Icon(Icons.auto_awesome_rounded, color: AppColors.primaryForeground, size: 20),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Шеф-ИИ создал ${aiRecipes.length} авторских рецепта из ваших продуктов!',
+                    style: const TextStyle(color: AppColors.primaryForeground, fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ],
+            ),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: AppColors.statusUrgent,
+            content: Text('Ошибка генерации: $e', style: const TextStyle(color: Colors.white)),
+          ),
+        );
+      }
+    } finally {
+      ref.read(isAiGeneratingRecipesProvider.notifier).state = false;
+    }
+  }
+
+  Widget _buildModeBtn({
+    required IconData icon,
+    required bool isSelected,
+    required String tooltip,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.primary : Colors.transparent,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Icon(
+          icon,
+          size: 18,
+          color: isSelected ? AppColors.primaryForeground : AppColors.textSecondary,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFeedFilterPill({
+    required String label,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.textPrimary : AppColors.surface,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected ? AppColors.textPrimary : AppColors.cardBorder,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+            color: isSelected ? Colors.black : AppColors.textPrimary,
+          ),
+        ),
       ),
     );
   }
@@ -151,7 +369,6 @@ class RecipesScreen extends ConsumerWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            // Full-Bleed High Definition Food Photography
             recipe.imageUrl.startsWith('assets/')
                 ? Image.asset(recipe.imageUrl, fit: BoxFit.cover)
                 : Image.network(
@@ -165,7 +382,6 @@ class RecipesScreen extends ConsumerWidget {
                     ),
                   ),
 
-            // Smooth Seamless Gradient: Transparent everywhere, darkening only at the bottom ~20-25%
             Positioned.fill(
               child: DecoratedBox(
                 decoration: BoxDecoration(
@@ -174,18 +390,17 @@ class RecipesScreen extends ConsumerWidget {
                     end: Alignment.bottomCenter,
                     stops: const [0.0, 0.18, 0.58, 0.80, 1.0],
                     colors: [
-                      Colors.black.withValues(alpha: 0.35), // subtle top shadow for badges
+                      Colors.black.withValues(alpha: 0.35),
                       Colors.transparent,
                       Colors.transparent,
                       Colors.black.withValues(alpha: 0.45),
-                      Colors.black.withValues(alpha: 0.88), // seamless bottom gradient without boxes
+                      Colors.black.withValues(alpha: 0.88),
                     ],
                   ),
                 ),
               ),
             ),
 
-            // Top Badges (Time/Calories Capsule + Favorite)
             Positioned(
               top: 14,
               left: 14,
@@ -193,7 +408,6 @@ class RecipesScreen extends ConsumerWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  // Time & Calories Frosted Capsule
                   ClipRRect(
                     borderRadius: BorderRadius.circular(20),
                     child: BackdropFilter(
@@ -215,8 +429,6 @@ class RecipesScreen extends ConsumerWidget {
                       ),
                     ),
                   ),
-
-                  // Favorite Frosted Circle
                   ClipRRect(
                     borderRadius: BorderRadius.circular(20),
                     child: BackdropFilter(
@@ -246,7 +458,6 @@ class RecipesScreen extends ConsumerWidget {
               ),
             ),
 
-            // Bottom Text Layer: Directly on the seamless gradient without any hard boxes
             Positioned(
               left: 18,
               right: 18,
