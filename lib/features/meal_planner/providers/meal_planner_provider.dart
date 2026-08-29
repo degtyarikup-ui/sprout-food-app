@@ -28,11 +28,11 @@ class MealPlannerNotifier extends StateNotifier<List<MealPlanDay>> {
     final List<MealPlanDay> days = [];
 
     final recipes = kCuratedRecipes;
-    final shakshuka = recipes.firstWhere((r) => r.id == 'r_shakshuka');
-    final salmonBowl = recipes.firstWhere((r) => r.id == 'r_salmon_bowl');
-    final pasta = recipes.firstWhere((r) => r.id == 'r_creamy_pasta');
-    final chia = recipes.firstWhere((r) => r.id == 'r_chia_pudding');
-    final bakedVeggies = recipes.firstWhere((r) => r.id == 'r_baked_veggies_feta');
+    final shakshuka = recipes.firstWhere((r) => r.id == 'r_shakshuka', orElse: () => recipes[0]);
+    final salmonBowl = recipes.firstWhere((r) => r.id == 'r_salmon_bowl', orElse: () => recipes.length > 1 ? recipes[1] : recipes[0]);
+    final pasta = recipes.firstWhere((r) => r.id == 'r_creamy_pasta', orElse: () => recipes.length > 2 ? recipes[2] : recipes[0]);
+    final chia = recipes.firstWhere((r) => r.id == 'r_chia_pudding', orElse: () => recipes[0]);
+    final bakedVeggies = recipes.firstWhere((r) => r.id == 'r_baked_veggies_feta', orElse: () => recipes[0]);
 
     for (int i = 0; i < 7; i++) {
       final date = now.add(Duration(days: i));
