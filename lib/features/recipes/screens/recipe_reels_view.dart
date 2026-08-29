@@ -491,16 +491,17 @@ class _RecipeReelsViewState extends ConsumerState<RecipeReelsView> {
     final isFull = scored.matchPercentage >= 99;
     final hasSome = scored.availableIngredients > 0;
 
+    // Subtle frosted background without bright saturated accent
     final Color badgeBg = isFull
-        ? const Color(0xFF2E7D32).withValues(alpha: 0.8)
+        ? Colors.white.withValues(alpha: 0.18)
         : hasSome
-            ? const Color(0xFFE65100).withValues(alpha: 0.8)
-            : Colors.white.withValues(alpha: 0.15);
+            ? Colors.black.withValues(alpha: 0.38)
+            : Colors.black.withValues(alpha: 0.28);
 
     final IconData icon = isFull
         ? Icons.check_circle_outline_rounded
         : hasSome
-            ? Icons.inventory_2_outlined
+            ? Icons.kitchen_outlined
             : Icons.restaurant_outlined;
 
     final String text = isFull
@@ -512,24 +513,25 @@ class _RecipeReelsViewState extends ConsumerState<RecipeReelsView> {
     return ClipRRect(
       borderRadius: BorderRadius.circular(12),
       child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
           decoration: BoxDecoration(
             color: badgeBg,
             borderRadius: BorderRadius.circular(12),
+            // Zero borders as per design system rule
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 13, color: Colors.white),
+              Icon(icon, size: 13, color: Colors.white70),
               const SizedBox(width: 5),
               Text(
                 text,
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 11,
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ],
@@ -549,6 +551,7 @@ class _RecipeReelsViewState extends ConsumerState<RecipeReelsView> {
           decoration: BoxDecoration(
             color: Colors.black.withValues(alpha: 0.38),
             borderRadius: BorderRadius.circular(10),
+            // Zero borders
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -593,10 +596,7 @@ class _RecipeReelsViewState extends ConsumerState<RecipeReelsView> {
                 decoration: BoxDecoration(
                   color: Colors.black.withValues(alpha: 0.38),
                   shape: BoxShape.circle,
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.15),
-                    width: 1,
-                  ),
+                  // Zero borders as per design system rule
                 ),
                 child: Icon(icon, color: iconColor, size: 22),
               ),

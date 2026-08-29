@@ -73,9 +73,7 @@ class RecipesScreen extends ConsumerWidget {
                                   decoration: BoxDecoration(
                                     color: Colors.black.withValues(alpha: 0.35),
                                     borderRadius: BorderRadius.circular(18),
-                                    border: Border.all(
-                                      color: Colors.white.withValues(alpha: 0.12),
-                                    ),
+                                    // Zero borders as per design system rule
                                   ),
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
@@ -251,9 +249,7 @@ class RecipesScreen extends ConsumerWidget {
                               decoration: BoxDecoration(
                                 color: isSelected ? AppColors.primary : AppColors.surface,
                                 borderRadius: BorderRadius.circular(16),
-                                border: Border.all(
-                                  color: isSelected ? AppColors.primary : AppColors.cardBorder,
-                                ),
+                                // Zero borders as per design system rule
                               ),
                               alignment: Alignment.center,
                               child: Text(
@@ -349,11 +345,7 @@ class RecipesScreen extends ConsumerWidget {
                   ? Colors.white
                   : Colors.black.withValues(alpha: 0.35),
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: isSelected
-                    ? Colors.white
-                    : Colors.white.withValues(alpha: 0.14),
-              ),
+              // Zero borders as per design system rule
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -396,9 +388,7 @@ class RecipesScreen extends ConsumerWidget {
         decoration: BoxDecoration(
           color: isSelected ? AppColors.textPrimary : AppColors.surface,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: isSelected ? AppColors.textPrimary : AppColors.cardBorder,
-          ),
+          // Zero borders as per design system rule
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
