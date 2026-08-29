@@ -930,7 +930,11 @@ class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
                   )
                 else if (_isProcessing)
                   // Engaging Dynamic Scanning Status Pill (warm, funny phrases)
-                  const _ScanningStatusPill(),
+                  const Flexible(
+                    child: Center(
+                      child: _ScanningStatusPill(),
+                    ),
+                  ),
 
                 const SizedBox(width: 44), // balance spacing
               ],
@@ -1207,7 +1211,7 @@ class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
     );
   }
 
-  /// Calculates center pins and non-overlapping badge positions with pixel-perfect measurement
+  /// Calculates center pins and non-overlapping badge positions with smart diagonal & directional adaptation
   List<_BadgeLayoutItem> _calculateBadgeLayout({
     required double renderW,
     required double renderH,
@@ -1219,8 +1223,12 @@ class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
     required double bottomPadding,
   }) {
     final List<_BadgeLayoutItem> items = [];
+    const badgeH = 28.0;
+    final minTop = topPadding + 64.0;
+    final maxBottom = screenH - bottomPadding - 100.0;
 
-    // Step 1: Initial position & exact width measurement for all items
+    // Step 1: Pre-calculate all dot coordinates and exact badge sizes
+    final List<_InitialItemData> initialData = [];
     for (int i = 0; i < _recognizedItems.length; i++) {
       final product = _recognizedItems[i];
       final box = product.box2d;
@@ -1233,21 +1241,22 @@ class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
         final ymax = box[2];
         final xmax = box[3];
 
-        // Center point of the detected object
         final centerY = (ymin + ymax) / 2.0;
         final centerX = (xmin + xmax) / 2.0;
 
         dotY = offsetY + (centerY / 1000.0) * renderH;
         dotX = offsetX + (centerX / 1000.0) * renderW;
       } else {
-        // Fallback grid distribution
         final row = i % 3;
         final col = (i ~/ 3);
         dotX = offsetX + 60 + (row * ((renderW - 120) / 2));
         dotY = offsetY + 120 + (col * 150);
       }
 
-      // Exact pixel width measurement with TextPainter
+      dotX = dotX.clamp(offsetX + 14.0, offsetX + renderW - 14.0);
+      dotY = dotY.clamp(offsetY + 14.0, offsetY + renderH - 14.0);
+
+      // Measure exact badge width
       final tp = TextPainter(
         text: TextSpan(
           text: '${product.emoji}  ${product.name}',
@@ -1257,82 +1266,116 @@ class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
         maxLines: 1,
       )..layout();
 
-      final exactW = tp.width + 24.0; // padding 10*2 + icon margin
-      final isOnLeftSide = dotX <= (screenW * 0.5);
+      final exactW = tp.width + 24.0;
+      initialData.add(_InitialItemData(index: i, product: product, dotX: dotX, dotY: dotY, exactW: exactW));
+    }
 
-      // Smart lateral placement:
-      // If dot is on the left half -> badge on left margin or offset to right of dot if dot is far left
-      double badgeX;
+    // Step 2: For each item, test smart candidate positions (Diagonal Top, Side, Above, Below)
+    for (int i = 0; i < initialData.length; i++) {
+      final cur = initialData[i];
+      final isOnLeftSide = cur.dotX <= (screenW * 0.5);
+
+      // Generate smart directional candidates around this dot
+      final List<_CandidatePlacement> candidates = [];
+
       if (isOnLeftSide) {
-        if (dotX < 70) {
-          badgeX = dotX + 38.0; // Place to the right of the dot
-        } else {
-          badgeX = 14.0; // Place on left screen margin
-        }
+        // Preferred order for left half:
+        candidates.add(_CandidatePlacement(cur.dotX + 32.0, cur.dotY - 42.0)); // Diagonal Top-Right
+        candidates.add(_CandidatePlacement(cur.dotX + 38.0, cur.dotY - 14.0)); // Side Right
+        candidates.add(_CandidatePlacement(cur.dotX + 32.0, cur.dotY + 32.0)); // Diagonal Bottom-Right
+        candidates.add(_CandidatePlacement(cur.dotX - (cur.exactW * 0.3), cur.dotY - 48.0)); // Straight Above
+        candidates.add(_CandidatePlacement(cur.dotX - cur.exactW - 28.0, cur.dotY - 42.0)); // Diagonal Top-Left
+        candidates.add(_CandidatePlacement(cur.dotX - cur.exactW - 32.0, cur.dotY - 14.0)); // Side Left
+        candidates.add(_CandidatePlacement(cur.dotX - (cur.exactW * 0.3), cur.dotY + 36.0)); // Straight Below
       } else {
-        if (dotX > screenW - 70) {
-          badgeX = dotX - exactW - 38.0; // Place to the left of the dot
-        } else {
-          badgeX = screenW - exactW - 14.0; // Place on right screen margin
+        // Preferred order for right half:
+        candidates.add(_CandidatePlacement(cur.dotX - cur.exactW - 32.0, cur.dotY - 42.0)); // Diagonal Top-Left
+        candidates.add(_CandidatePlacement(cur.dotX - cur.exactW - 38.0, cur.dotY - 14.0)); // Side Left
+        candidates.add(_CandidatePlacement(cur.dotX - cur.exactW - 32.0, cur.dotY + 32.0)); // Diagonal Bottom-Left
+        candidates.add(_CandidatePlacement(cur.dotX - (cur.exactW * 0.7), cur.dotY - 48.0)); // Straight Above
+        candidates.add(_CandidatePlacement(cur.dotX + 28.0, cur.dotY - 42.0)); // Diagonal Top-Right
+        candidates.add(_CandidatePlacement(cur.dotX + 32.0, cur.dotY - 14.0)); // Side Right
+        candidates.add(_CandidatePlacement(cur.dotX - (cur.exactW * 0.7), cur.dotY + 36.0)); // Straight Below
+      }
+
+      // Score each candidate to find the cleanest, non-overlapping spot
+      _CandidatePlacement bestCandidate = candidates.first;
+      double minPenalty = double.infinity;
+
+      for (final cand in candidates) {
+        double penalty = 0.0;
+        final clampedX = cand.x.clamp(12.0, screenW - cur.exactW - 12.0);
+        final clampedY = cand.y.clamp(minTop, maxBottom);
+
+        // Penalty for clamping (off-screen)
+        penalty += (cand.x - clampedX).abs() * 20.0;
+        penalty += (cand.y - clampedY).abs() * 20.0;
+
+        final candRect = Rect.fromLTWH(clampedX, clampedY, cur.exactW, badgeH);
+
+        // Penalty for overlapping already placed badges
+        for (final placed in items) {
+          final placedRect = Rect.fromLTWH(placed.badgeX, placed.badgeY, placed.exactBadgeWidth, badgeH);
+          if (candRect.inflate(6.0).overlaps(placedRect)) {
+            penalty += 10000.0;
+          }
+        }
+
+        // Penalty for covering ANY product dot
+        for (final anyDot in initialData) {
+          if (candRect.inflate(12.0).contains(Offset(anyDot.dotX, anyDot.dotY))) {
+            penalty += 20000.0;
+          }
+        }
+
+        // Preference for shorter distance to own dot
+        final dist = (Offset(clampedX + cur.exactW / 2, clampedY + badgeH / 2) - Offset(cur.dotX, cur.dotY)).distance;
+        penalty += dist * 1.2;
+
+        if (penalty < minPenalty) {
+          minPenalty = penalty;
+          bestCandidate = _CandidatePlacement(clampedX, clampedY);
         }
       }
 
-      double badgeY = dotY - 14.0;
-
-      // Keep strictly within screen bounds
-      badgeX = badgeX.clamp(12.0, screenW - exactW - 12.0);
-      badgeY = badgeY.clamp(topPadding + 64.0, screenH - bottomPadding - 100.0);
-
       items.add(
         _BadgeLayoutItem(
-          index: i,
-          product: product,
-          dotX: dotX.clamp(offsetX + 8, offsetX + renderW - 8),
-          dotY: dotY.clamp(offsetY + 8, offsetY + renderH - 8),
-          badgeX: badgeX,
-          badgeY: badgeY,
-          exactBadgeWidth: exactW,
+          index: cur.index,
+          product: cur.product,
+          dotX: cur.dotX,
+          dotY: cur.dotY,
+          badgeX: bestCandidate.x.clamp(12.0, screenW - cur.exactW - 12.0),
+          badgeY: bestCandidate.y.clamp(minTop, maxBottom),
+          exactBadgeWidth: cur.exactW,
         ),
       );
     }
 
-    // Step 2: Ensure NO badge covers ANY dot
-    const badgeH = 28.0;
-    for (final b in items) {
-      for (final d in items) {
-        final badgeRect = Rect.fromLTWH(b.badgeX - 12, b.badgeY - 10, b.exactBadgeWidth + 24, badgeH + 20);
-        if (badgeRect.contains(Offset(d.dotX, d.dotY))) {
-          // Dot is covered! Push badge away
-          if (b.dotX <= screenW * 0.5) {
-            b.badgeX = (d.dotX + 36.0).clamp(12.0, screenW - b.exactBadgeWidth - 12.0);
-          } else {
-            b.badgeX = (d.dotX - b.exactBadgeWidth - 36.0).clamp(12.0, screenW - b.exactBadgeWidth - 12.0);
-          }
-        }
-      }
-    }
-
-    // Step 3: Vertical relaxation pass for left and right columns
-    items.sort((a, b) => a.badgeY.compareTo(b.badgeY));
-    const minVerticalGap = 36.0;
-
-    for (int step = 0; step < 3; step++) {
-      for (int i = 1; i < items.length; i++) {
-        final prev = items[i - 1];
-        final curr = items[i];
-
-        // Check if both badges overlap horizontally
-        final isHorizOverlap = (curr.badgeX < prev.badgeX + prev.exactBadgeWidth + 8) &&
-            (curr.badgeX + curr.exactBadgeWidth > prev.badgeX - 8);
-
-        if (isHorizOverlap && (curr.badgeY - prev.badgeY).abs() < minVerticalGap) {
-          curr.badgeY = (prev.badgeY + minVerticalGap).clamp(topPadding + 64.0, screenH - bottomPadding - 100.0);
-        }
-      }
-    }
-
     return items;
   }
+}
+
+class _InitialItemData {
+  final int index;
+  final ProductItem product;
+  final double dotX;
+  final double dotY;
+  final double exactW;
+
+  _InitialItemData({
+    required this.index,
+    required this.product,
+    required this.dotX,
+    required this.dotY,
+    required this.exactW,
+  });
+}
+
+class _CandidatePlacement {
+  final double x;
+  final double y;
+
+  _CandidatePlacement(this.x, this.y);
 }
 
 class _BadgeLayoutItem {
@@ -1364,7 +1407,7 @@ class _ConnectingLinesPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final linePaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.7)
+      ..color = Colors.white.withValues(alpha: 0.75)
       ..strokeWidth = 1.3
       ..style = PaintingStyle.stroke;
 
@@ -1375,28 +1418,27 @@ class _ConnectingLinesPainter extends CustomPainter {
     for (final item in layout) {
       canvas.drawCircle(Offset(item.dotX, item.dotY), 7, dotHaloPaint);
 
-      final badgeW = item.exactBadgeWidth;
       const badgeH = 28.0;
+      final badgeLeft = item.badgeX;
+      final badgeRight = item.badgeX + item.exactBadgeWidth;
+      final badgeTop = item.badgeY;
+      final badgeBottom = item.badgeY + badgeH;
 
       double targetX, targetY;
 
-      // Exact docking to the correct edge of the badge
-      if (item.dotX <= item.badgeX) {
-        // Dot is to the left of the badge -> connect directly to LEFT edge
-        targetX = item.badgeX;
-        targetY = item.badgeY + (badgeH / 2);
-      } else if (item.dotX >= item.badgeX + badgeW) {
-        // Dot is to the right of the badge -> connect directly to RIGHT edge
-        targetX = item.badgeX + badgeW;
-        targetY = item.badgeY + (badgeH / 2);
-      } else if (item.dotY < item.badgeY) {
-        // Dot is above the badge -> connect to TOP edge
-        targetX = item.badgeX + (badgeW / 2);
-        targetY = item.badgeY;
+      // Calculate the closest natural docking point on the badge boundary
+      if (item.dotX < badgeLeft) {
+        targetX = badgeLeft;
+        targetY = item.dotY.clamp(badgeTop + 6.0, badgeBottom - 6.0);
+      } else if (item.dotX > badgeRight) {
+        targetX = badgeRight;
+        targetY = item.dotY.clamp(badgeTop + 6.0, badgeBottom - 6.0);
+      } else if (item.dotY < badgeTop) {
+        targetX = item.dotX.clamp(badgeLeft + 6.0, badgeRight - 6.0);
+        targetY = badgeTop;
       } else {
-        // Dot is below the badge -> connect to BOTTOM edge
-        targetX = item.badgeX + (badgeW / 2);
-        targetY = item.badgeY + badgeH;
+        targetX = item.dotX.clamp(badgeLeft + 6.0, badgeRight - 6.0);
+        targetY = badgeBottom;
       }
 
       final path = Path();
