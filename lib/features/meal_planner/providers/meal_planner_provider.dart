@@ -18,33 +18,61 @@ class MealPlannerNotifier extends StateNotifier<List<MealPlanDay>> {
     if (saved != null && saved.isNotEmpty) {
       state = saved;
     } else {
-      generateZeroWastePlan();
+      // Default to clean customizable empty slots for 7 days
+      _createEmpty7DayPlan();
     }
   }
 
-  /// Generates or rebuilds the 7-day plan optimizing for zero food waste
-  void generateZeroWastePlan() {
+  /// Creates a clean slate with empty Breakfast, Lunch, Dinner slots for 7 days
+  void _createEmpty7DayPlan() {
     final now = DateTime.now();
     final List<MealPlanDay> days = [];
 
+    for (int i = 0; i < 7; i++) {
+      final date = now.add(Duration(days: i));
+      days.add(
+        MealPlanDay(
+          date: date,
+          dayTheme: i == 0 ? 'Сегодня' : (i == 1 ? 'Завтра' : 'День ${i + 1}'),
+          slots: [
+            MealSlot(type: MealType.breakfast, recipe: null),
+            MealSlot(type: MealType.lunch, recipe: null),
+            MealSlot(type: MealType.dinner, recipe: null),
+          ],
+        ),
+      );
+    }
+    state = days;
+    _persist();
+  }
+
+  /// Clears all meals from the plan, giving user empty slots to plan manually
+  void clearEntirePlan() {
+    _createEmpty7DayPlan();
+  }
+
+  /// Generates or rebuilds the 7-day plan matching current fridge ingredients
+  void generateZeroWastePlan() {
+    final now = DateTime.now();
+    final List<MealPlanDay> days = [];
     final recipes = kCuratedRecipes;
+
     final shakshuka = recipes.firstWhere((r) => r.id == 'r_shakshuka', orElse: () => recipes[0]);
     final salmonBowl = recipes.firstWhere((r) => r.id == 'r_salmon_bowl', orElse: () => recipes.length > 1 ? recipes[1] : recipes[0]);
     final pasta = recipes.firstWhere((r) => r.id == 'r_creamy_pasta', orElse: () => recipes.length > 2 ? recipes[2] : recipes[0]);
-    final chia = recipes.firstWhere((r) => r.id == 'r_chia_pudding', orElse: () => recipes[0]);
-    final bakedVeggies = recipes.firstWhere((r) => r.id == 'r_baked_veggies_feta', orElse: () => recipes[0]);
+    final syrniki = recipes.firstWhere((r) => r.id == 'r_syrniki', orElse: () => recipes[0]);
+    final turkey = recipes.firstWhere((r) => r.id == 'r_turkey_corn', orElse: () => recipes[0]);
 
     for (int i = 0; i < 7; i++) {
       final date = now.add(Duration(days: i));
       List<MealSlot> slots = [];
 
       if (i == 0) {
-        // Today: Focus on urgent expiring items (Tomatoes + Feta + Spinach)
         slots = [
           MealSlot(
             type: MealType.breakfast,
             recipe: shakshuka,
-            prepAlert: '🔥 Используйте томаты и шпинат из холодильника (истекают сегодня)',
+            prepAlert: 'Используйте томаты и яйца из холодильника',
           ),
           MealSlot(
             type: MealType.lunch,
@@ -53,41 +81,20 @@ class MealPlannerNotifier extends StateNotifier<List<MealPlanDay>> {
           MealSlot(
             type: MealType.dinner,
             recipe: pasta,
-            prepAlert: 'Совет: Разморозьте куриное филе для пасты',
+            prepAlert: 'Разморозьте куриное филе для пасты',
           ),
         ];
       } else if (i == 1) {
-        // Tomorrow: Leftover loop (Feta cheese + Veggies)
         slots = [
-          MealSlot(
-            type: MealType.breakfast,
-            recipe: chia,
-          ),
-          MealSlot(
-            type: MealType.lunch,
-            recipe: pasta, // Batch cooking leftover
-          ),
-          MealSlot(
-            type: MealType.dinner,
-            recipe: bakedVeggies,
-            prepAlert: '🔥 Доиспользуем остатки феты и сезонные овощи',
-          ),
+          MealSlot(type: MealType.breakfast, recipe: syrniki),
+          MealSlot(type: MealType.lunch, recipe: pasta),
+          MealSlot(type: MealType.dinner, recipe: turkey),
         ];
       } else {
-        // Days 3-7
         slots = [
-          MealSlot(
-            type: MealType.breakfast,
-            recipe: i % 2 == 0 ? shakshuka : chia,
-          ),
-          MealSlot(
-            type: MealType.lunch,
-            recipe: salmonBowl,
-          ),
-          MealSlot(
-            type: MealType.dinner,
-            recipe: i % 2 == 0 ? bakedVeggies : pasta,
-          ),
+          MealSlot(type: MealType.breakfast, recipe: i % 2 == 0 ? shakshuka : syrniki),
+          MealSlot(type: MealType.lunch, recipe: salmonBowl),
+          MealSlot(type: MealType.dinner, recipe: i % 2 == 0 ? turkey : pasta),
         ];
       }
 
@@ -95,10 +102,7 @@ class MealPlannerNotifier extends StateNotifier<List<MealPlanDay>> {
         MealPlanDay(
           date: date,
           slots: slots,
-          dayTheme: i == 0 ? 'День 1: Срочная свежесть' : (i == 1 ? 'День 2: Zero Waste Loop' : 'Сбалансированное меню'),
-          chefAdvice: i == 0
-              ? 'Сегодня спасаем томаты и шпинат — они на пике вкуса!'
-              : 'Вторая половина феты идеально подойдет для запекания с овощами завтра вечером.',
+          dayTheme: i == 0 ? 'Сегодня: Срочная свежесть' : (i == 1 ? 'Завтра: Шеф-меню' : 'Сбалансированное меню'),
         ),
       );
     }
@@ -107,15 +111,13 @@ class MealPlannerNotifier extends StateNotifier<List<MealPlanDay>> {
     _persist();
   }
 
-  /// Swap a meal slot with another recipe
-  void swapSlotRecipe(DateTime dayDate, String slotId, Recipe newRecipe) {
+  /// Assign or change recipe in a slot
+  void assignRecipeToSlot(DateTime dayDate, String slotId, Recipe recipe) {
     state = state.map((day) {
-      if (day.date.year == dayDate.year &&
-          day.date.month == dayDate.month &&
-          day.date.day == dayDate.day) {
+      if (_isSameDay(day.date, dayDate)) {
         final updatedSlots = day.slots.map((s) {
           if (s.id == slotId) {
-            return s.copyWith(recipe: newRecipe);
+            return s.copyWith(recipe: recipe, isCompleted: false);
           }
           return s;
         }).toList();
@@ -126,15 +128,64 @@ class MealPlannerNotifier extends StateNotifier<List<MealPlanDay>> {
     _persist();
   }
 
+  /// Remove a recipe from slot (makes it empty, not locked)
+  void removeRecipeFromSlot(DateTime dayDate, String slotId) {
+    state = state.map((day) {
+      if (_isSameDay(day.date, dayDate)) {
+        final updatedSlots = day.slots.map((s) {
+          if (s.id == slotId) {
+            return MealSlot(
+              id: s.id,
+              type: s.type,
+              recipe: null,
+              isCompleted: false,
+            );
+          }
+          return s;
+        }).toList();
+        return day.copyWith(slots: updatedSlots);
+      }
+      return day;
+    }).toList();
+    _persist();
+  }
+
+  /// Add custom meal slot (e.g. Перекус)
+  void addMealSlot(DateTime dayDate, MealType type, Recipe? recipe) {
+    state = state.map((day) {
+      if (_isSameDay(day.date, dayDate)) {
+        final newSlot = MealSlot(type: type, recipe: recipe);
+        return day.copyWith(slots: [...day.slots, newSlot]);
+      }
+      return day;
+    }).toList();
+    _persist();
+  }
+
+  /// Delete a slot entirely
+  void deleteSlot(DateTime dayDate, String slotId) {
+    state = state.map((day) {
+      if (_isSameDay(day.date, dayDate)) {
+        final updatedSlots = day.slots.where((s) => s.id != slotId).toList();
+        return day.copyWith(slots: updatedSlots);
+      }
+      return day;
+    }).toList();
+    _persist();
+  }
+
+  /// Swap slot recipe (alias to assign)
+  void swapSlotRecipe(DateTime dayDate, String slotId, Recipe newRecipe) {
+    assignRecipeToSlot(dayDate, slotId, newRecipe);
+  }
+
   /// Mark meal as cooked -> update eco savings and mark slot completed
   void completeMealSlot(DateTime dayDate, String slotId) {
     state = state.map((day) {
-      if (day.date.year == dayDate.year &&
-          day.date.month == dayDate.month &&
-          day.date.day == dayDate.day) {
+      if (_isSameDay(day.date, dayDate)) {
         final updatedSlots = day.slots.map((s) {
           if (s.id == slotId) {
-            return s.copyWith(isCompleted: true);
+            return s.copyWith(isCompleted: !s.isCompleted);
           }
           return s;
         }).toList();
@@ -143,9 +194,12 @@ class MealPlannerNotifier extends StateNotifier<List<MealPlanDay>> {
       return day;
     }).toList();
 
-    // Reward user in eco-savings
     _ref.read(ecoSavingsProvider.notifier).recordMealCooked(savedMoney: 280.0, savedKg: 0.35);
     _persist();
+  }
+
+  bool _isSameDay(DateTime a, DateTime b) {
+    return a.year == b.year && a.month == b.month && a.day == b.day;
   }
 
   Future<void> _persist() async {
