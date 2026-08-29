@@ -2,10 +2,8 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../core/services/gemini_ai_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
-import '../../fridge/providers/fridge_provider.dart';
 import '../providers/recipes_provider.dart';
 import 'recipe_detail_screen.dart';
 import 'recipe_reels_view.dart';
@@ -22,16 +20,178 @@ class RecipesScreen extends ConsumerWidget {
     final feedFilter = ref.watch(recipeFeedFilterProvider);
     final fridgeCount = ref.watch(fridgeMatchCountProvider);
     final favCount = ref.watch(favoriteRecipesCountProvider);
-    final isGenerating = ref.watch(isAiGeneratingRecipesProvider);
 
+    final topPadding = MediaQuery.of(context).padding.top;
     final categories = ['Все', 'Завтрак', 'Обед', 'Ужин', 'Перекус'];
 
+    if (viewMode == 0) {
+      // Full-Bleed Reels Mode (TikTok / Instagram style edge-to-edge)
+      return AnnotatedRegion<SystemUiOverlayStyle>(
+        value: SystemUiOverlayStyle.light,
+        child: Scaffold(
+          backgroundColor: Colors.black,
+          body: Stack(
+            children: [
+              // Full-Bleed Reels Feed (Behind Status Bar and Bottom Nav)
+              Positioned.fill(
+                child: RecipeReelsView(recipes: scoredRecipes),
+              ),
+
+              // Floating Frosted Top Bar
+              Positioned(
+                top: topPadding + 6,
+                left: 16,
+                right: 16,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Top Row: Title + Controls
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Рецепты',
+                          style: AppTypography.displayMedium.copyWith(
+                            color: Colors.white,
+                            fontSize: 24,
+                            fontWeight: FontWeight.w800,
+                            shadows: const [
+                              Shadow(color: Colors.black54, blurRadius: 8),
+                            ],
+                          ),
+                        ),
+
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // View Mode Toggle (Frosted Glass)
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(18),
+                              child: BackdropFilter(
+                                filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+                                child: Container(
+                                  padding: const EdgeInsets.all(3),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black.withValues(alpha: 0.35),
+                                    borderRadius: BorderRadius.circular(18),
+                                    border: Border.all(
+                                      color: Colors.white.withValues(alpha: 0.12),
+                                    ),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      _buildModeIconBtn(
+                                        icon: Icons.movie_filter_outlined,
+                                        isSelected: true,
+                                        onTap: () {},
+                                      ),
+                                      _buildModeIconBtn(
+                                        icon: Icons.grid_view_rounded,
+                                        isSelected: false,
+                                        onTap: () {
+                                          HapticFeedback.selectionClick();
+                                          ref.read(recipeViewModeProvider.notifier).state = 1;
+                                        },
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+
+                            // Import Link Button (Frosted Glass)
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(20),
+                              child: BackdropFilter(
+                                filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+                                child: GestureDetector(
+                                  onTap: () {
+                                    HapticFeedback.lightImpact();
+                                    showModalBottomSheet(
+                                      context: context,
+                                      isScrollControlled: true,
+                                      backgroundColor: Colors.transparent,
+                                      builder: (context) => const SocialImporterModal(),
+                                    );
+                                  },
+                                  child: Container(
+                                    width: 40,
+                                    height: 40,
+                                    decoration: BoxDecoration(
+                                      color: Colors.black.withValues(alpha: 0.35),
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: Colors.white.withValues(alpha: 0.12),
+                                      ),
+                                    ),
+                                    child: const Icon(
+                                      Icons.link_rounded,
+                                      color: Colors.white,
+                                      size: 20,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+
+                    // Filter Pills: [ Все блюда | В наличии (N) | Избранное (N) ]
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          _buildFrostedFilterPill(
+                            label: 'Все блюда',
+                            isSelected: feedFilter == 0,
+                            onTap: () {
+                              HapticFeedback.selectionClick();
+                              ref.read(recipeFeedFilterProvider.notifier).state = 0;
+                            },
+                          ),
+                          const SizedBox(width: 8),
+                          _buildFrostedFilterPill(
+                            icon: Icons.kitchen_outlined,
+                            label: 'В наличии ($fridgeCount)',
+                            isSelected: feedFilter == 1,
+                            onTap: () {
+                              HapticFeedback.selectionClick();
+                              ref.read(recipeFeedFilterProvider.notifier).state = 1;
+                            },
+                          ),
+                          const SizedBox(width: 8),
+                          _buildFrostedFilterPill(
+                            icon: Icons.favorite_border_rounded,
+                            label: 'Избранное ($favCount)',
+                            isSelected: feedFilter == 2,
+                            onTap: () {
+                              HapticFeedback.selectionClick();
+                              ref.read(recipeFeedFilterProvider.notifier).state = 2;
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // Classic Grid / List View Mode
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
         title: Text('Рецепты', style: AppTypography.displayMedium),
         actions: [
-          // View Mode Switcher: [ 🎬 Reels | 📋 Сетка ]
           Container(
             margin: const EdgeInsets.only(right: 8),
             decoration: BoxDecoration(
@@ -41,29 +201,22 @@ class RecipesScreen extends ConsumerWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                _buildModeBtn(
+                _buildModeIconBtn(
                   icon: Icons.movie_filter_outlined,
-                  isSelected: viewMode == 0,
-                  tooltip: 'Reels-лента',
+                  isSelected: false,
                   onTap: () {
                     HapticFeedback.selectionClick();
                     ref.read(recipeViewModeProvider.notifier).state = 0;
                   },
                 ),
-                _buildModeBtn(
+                _buildModeIconBtn(
                   icon: Icons.grid_view_rounded,
-                  isSelected: viewMode == 1,
-                  tooltip: 'Сетка рецептов',
-                  onTap: () {
-                    HapticFeedback.selectionClick();
-                    ref.read(recipeViewModeProvider.notifier).state = 1;
-                  },
+                  isSelected: true,
+                  onTap: () {},
                 ),
               ],
             ),
           ),
-
-          // Import Link Button
           IconButton(
             icon: const Icon(Icons.link_rounded, size: 22),
             tooltip: 'Импорт из видео',
@@ -82,15 +235,15 @@ class RecipesScreen extends ConsumerWidget {
       ),
       body: Column(
         children: [
-          // Core Feed Filter Tabs: [ 🎬 Все | 🥑 Из холодильника (N) | ❤️ Моя подборка (N) ]
+          // Filter Tabs in Grid Mode
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: Row(
                 children: [
-                  _buildFeedFilterPill(
-                    label: '🎬 Все блюда',
+                  _buildLightFilterPill(
+                    label: 'Все блюда',
                     isSelected: feedFilter == 0,
                     onTap: () {
                       HapticFeedback.selectionClick();
@@ -98,8 +251,9 @@ class RecipesScreen extends ConsumerWidget {
                     },
                   ),
                   const SizedBox(width: 8),
-                  _buildFeedFilterPill(
-                    label: '🥑 Из холодильника ($fridgeCount)',
+                  _buildLightFilterPill(
+                    icon: Icons.kitchen_outlined,
+                    label: 'В наличии ($fridgeCount)',
                     isSelected: feedFilter == 1,
                     onTap: () {
                       HapticFeedback.selectionClick();
@@ -107,8 +261,9 @@ class RecipesScreen extends ConsumerWidget {
                     },
                   ),
                   const SizedBox(width: 8),
-                  _buildFeedFilterPill(
-                    label: '❤️ Моя подборка ($favCount)',
+                  _buildLightFilterPill(
+                    icon: Icons.favorite_border_rounded,
+                    label: 'Избранное ($favCount)',
                     isSelected: feedFilter == 2,
                     onTap: () {
                       HapticFeedback.selectionClick();
@@ -120,193 +275,165 @@ class RecipesScreen extends ConsumerWidget {
             ),
           ),
 
-          // Main View: Reels (Vertical Full-Bleed Feed) OR Classic Grid List
           Expanded(
-            child: viewMode == 0
-                ? RecipeReelsView(recipes: scoredRecipes)
-                : CustomScrollView(
-                    slivers: [
-                      // Category Selector Pills (only in grid mode)
-                      SliverToBoxAdapter(
-                        child: SizedBox(
-                          height: 44,
-                          child: ListView.builder(
-                            scrollDirection: Axis.horizontal,
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                            itemCount: categories.length,
-                            itemBuilder: (context, index) {
-                              final cat = categories[index];
-                              final isSelected = selectedCategory == cat;
-                              return Padding(
-                                padding: const EdgeInsets.only(right: 8),
-                                child: GestureDetector(
-                                  onTap: () {
-                                    HapticFeedback.selectionClick();
-                                    ref.read(selectedRecipeCategoryProvider.notifier).state = cat;
-                                  },
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                                    decoration: BoxDecoration(
-                                      color: isSelected ? AppColors.primary : AppColors.surface,
-                                      borderRadius: BorderRadius.circular(16),
-                                      border: Border.all(
-                                        color: isSelected ? AppColors.primary : AppColors.cardBorder,
-                                      ),
-                                    ),
-                                    alignment: Alignment.center,
-                                    child: Text(
-                                      cat,
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                                        color: isSelected ? AppColors.primaryForeground : AppColors.textPrimary,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              );
+            child: CustomScrollView(
+              slivers: [
+                // Category Pills
+                SliverToBoxAdapter(
+                  child: SizedBox(
+                    height: 44,
+                    child: ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                      itemCount: categories.length,
+                      itemBuilder: (context, index) {
+                        final cat = categories[index];
+                        final isSelected = selectedCategory == cat;
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: GestureDetector(
+                            onTap: () {
+                              HapticFeedback.selectionClick();
+                              ref.read(selectedRecipeCategoryProvider.notifier).state = cat;
                             },
-                          ),
-                        ),
-                      ),
-
-                      // Search Box (in grid mode)
-                      SliverToBoxAdapter(
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          child: TextField(
-                            onChanged: (val) => ref.read(searchQueryProvider.notifier).state = val,
-                            decoration: const InputDecoration(
-                              hintText: 'Поиск блюд и ингредиентов...',
-                              prefixIcon: Icon(Icons.search_rounded, size: 20, color: AppColors.textTertiary),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: isSelected ? AppColors.primary : AppColors.surface,
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color: isSelected ? AppColors.primary : AppColors.cardBorder,
+                                ),
+                              ),
+                              alignment: Alignment.center,
+                              child: Text(
+                                cat,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                                  color: isSelected ? AppColors.primaryForeground : AppColors.textPrimary,
+                                ),
+                              ),
                             ),
                           ),
-                        ),
-                      ),
-
-                      // Full-Bleed Food Photo Cards
-                      SliverPadding(
-                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 80),
-                        sliver: SliverList(
-                          delegate: SliverChildBuilderDelegate(
-                            (context, index) {
-                              final item = scoredRecipes[index];
-                              return _buildSeamlessRecipeCard(context, item, ref);
-                            },
-                            childCount: scoredRecipes.length,
-                          ),
-                        ),
-                      ),
-                    ],
+                        );
+                      },
+                    ),
                   ),
-          ),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: AppColors.primary,
-        foregroundColor: AppColors.primaryForeground,
-        elevation: 3,
-        onPressed: isGenerating ? null : () => _generateAiRecipes(context, ref),
-        icon: isGenerating
-            ? const SizedBox(
-                width: 18,
-                height: 18,
-                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-              )
-            : const Icon(Icons.auto_awesome_rounded, size: 18),
-        label: Text(
-          isGenerating ? 'Шеф-ИИ думает...' : '✨ Шеф-ИИ по остаткам',
-          style: const TextStyle(fontWeight: FontWeight.w700),
-        ),
-      ),
-    );
-  }
+                ),
 
-  static Future<void> _generateAiRecipes(BuildContext context, WidgetRef ref) async {
-    final fridgeItems = ref.read(fridgeProvider);
-    if (fridgeItems.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          backgroundColor: AppColors.surface,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          content: const Text(
-            'Сначала добавьте продукты в холодильник или отсканируйте их 📸',
-            style: TextStyle(color: AppColors.textPrimary),
-          ),
-        ),
-      );
-      return;
-    }
+                // Search Box
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    child: TextField(
+                      onChanged: (val) => ref.read(searchQueryProvider.notifier).state = val,
+                      decoration: const InputDecoration(
+                        hintText: 'Поиск блюд и ингредиентов...',
+                        prefixIcon: Icon(Icons.search_rounded, size: 20, color: AppColors.textTertiary),
+                      ),
+                    ),
+                  ),
+                ),
 
-    ref.read(isAiGeneratingRecipesProvider.notifier).state = true;
-    HapticFeedback.mediumImpact();
-
-    try {
-      final aiRecipes = await GeminiAIService.generateRecipesFromFridge(fridgeItems);
-      ref.read(recipesProvider.notifier).addRecipes(aiRecipes);
-      ref.read(recipeFeedFilterProvider.notifier).state = 0; // Show all in feed
-
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            backgroundColor: AppColors.primary,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            content: Row(
-              children: [
-                const Icon(Icons.auto_awesome_rounded, color: AppColors.primaryForeground, size: 20),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    'Шеф-ИИ создал ${aiRecipes.length} авторских рецепта из ваших продуктов!',
-                    style: const TextStyle(color: AppColors.primaryForeground, fontWeight: FontWeight.w700),
+                // Full-Bleed Food Cards
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 80),
+                  sliver: SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) {
+                        final item = scoredRecipes[index];
+                        return _buildSeamlessRecipeCard(context, item, ref);
+                      },
+                      childCount: scoredRecipes.length,
+                    ),
                   ),
                 ),
               ],
             ),
-            duration: const Duration(seconds: 3),
           ),
-        );
-      }
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            backgroundColor: AppColors.statusUrgent,
-            content: Text('Ошибка генерации: $e', style: const TextStyle(color: Colors.white)),
-          ),
-        );
-      }
-    } finally {
-      ref.read(isAiGeneratingRecipesProvider.notifier).state = false;
-    }
+        ],
+      ),
+    );
   }
 
-  Widget _buildModeBtn({
+  Widget _buildModeIconBtn({
     required IconData icon,
     required bool isSelected,
-    required String tooltip,
     required VoidCallback onTap,
   }) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
           color: isSelected ? AppColors.primary : Colors.transparent,
           borderRadius: BorderRadius.circular(14),
         ),
         child: Icon(
           icon,
-          size: 18,
-          color: isSelected ? AppColors.primaryForeground : AppColors.textSecondary,
+          size: 16,
+          color: isSelected ? AppColors.primaryForeground : Colors.white70,
         ),
       ),
     );
   }
 
-  Widget _buildFeedFilterPill({
+  Widget _buildFrostedFilterPill({
+    IconData? icon,
+    required String label,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+            decoration: BoxDecoration(
+              color: isSelected
+                  ? Colors.white
+                  : Colors.black.withValues(alpha: 0.35),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: isSelected
+                    ? Colors.white
+                    : Colors.white.withValues(alpha: 0.14),
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (icon != null) ...[
+                  Icon(
+                    icon,
+                    size: 14,
+                    color: isSelected ? Colors.black : Colors.white,
+                  ),
+                  const SizedBox(width: 5),
+                ],
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+                    color: isSelected ? Colors.black : Colors.white,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLightFilterPill({
+    IconData? icon,
     required String label,
     required bool isSelected,
     required VoidCallback onTap,
@@ -323,13 +450,26 @@ class RecipesScreen extends ConsumerWidget {
             color: isSelected ? AppColors.textPrimary : AppColors.cardBorder,
           ),
         ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
-            color: isSelected ? Colors.black : AppColors.textPrimary,
-          ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (icon != null) ...[
+              Icon(
+                icon,
+                size: 14,
+                color: isSelected ? Colors.black : AppColors.textPrimary,
+              ),
+              const SizedBox(width: 5),
+            ],
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+                color: isSelected ? Colors.black : AppColors.textPrimary,
+              ),
+            ),
+          ],
         ),
       ),
     );
