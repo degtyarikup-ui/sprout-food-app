@@ -31,6 +31,16 @@ class UserPreferencesNotifier extends StateNotifier<UserPreferences> {
     await _persist();
   }
 
+  Future<void> setGoals(List<String> goals) async {
+    state = state.copyWith(goals: goals);
+    await _persist();
+  }
+
+  Future<void> setAllergies(List<String> allergies) async {
+    state = state.copyWith(allergies: allergies);
+    await _persist();
+  }
+
   Future<void> toggleAllergy(String allergy) async {
     final current = List<String>.from(state.allergies);
     if (current.contains(allergy)) {
