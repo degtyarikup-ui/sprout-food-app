@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../../core/services/gemini_ai_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/utils/product_helper.dart';
 import '../../fridge/models/product_item.dart';
 import '../../fridge/providers/fridge_provider.dart';
 
@@ -347,13 +348,25 @@ class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
                   ),
                   const SizedBox(height: 16),
 
-                  // Name Field
+                  // Name Field with Auto Emoji & Category Matching
                   TextField(
                     controller: nameCtrl,
                     autofocus: isNew,
+                    onChanged: (val) {
+                      final autoEmoji = ProductHelper.getEmojiForName(val);
+                      final autoCat = ProductHelper.getCategoryForName(val);
+                      setSheetState(() {
+                        if (autoEmoji != '🥑' || val.trim().toLowerCase().contains('авокадо')) {
+                          emoji = autoEmoji;
+                        }
+                        if (isNew) {
+                          category = autoCat;
+                        }
+                      });
+                    },
                     decoration: const InputDecoration(
                       labelText: 'Название продукта',
-                      hintText: 'Например: Сыр Пармезан',
+                      hintText: 'Например: Картошка, Сыр, Молоко',
                       prefixIcon: Icon(Icons.edit_outlined, size: 20),
                     ),
                   ),

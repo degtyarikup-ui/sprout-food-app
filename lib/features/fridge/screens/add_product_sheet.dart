@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/utils/product_helper.dart';
 import '../models/product_item.dart';
 import '../providers/fridge_provider.dart';
 
@@ -94,12 +95,22 @@ class _AddProductSheetState extends ConsumerState<AddProductSheet> {
             Text('Добавить продукт', style: AppTypography.titleLarge),
             const SizedBox(height: 16),
 
-            // Product Name
+            // Product Name with Auto Emoji & Category Matching
             TextField(
               controller: _nameController,
               autofocus: true,
+              onChanged: (val) {
+                final autoEmoji = ProductHelper.getEmojiForName(val);
+                final autoCat = ProductHelper.getCategoryForName(val);
+                setState(() {
+                  if (autoEmoji != '🥑' || val.trim().toLowerCase().contains('авокадо')) {
+                    _selectedEmoji = autoEmoji;
+                  }
+                  _selectedCategory = autoCat;
+                });
+              },
               decoration: const InputDecoration(
-                hintText: 'Название (например: Томаты черри)',
+                hintText: 'Название (например: Картошка, Сыр)',
               ),
             ),
             const SizedBox(height: 12),
