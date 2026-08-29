@@ -56,11 +56,13 @@ class _FridgeScreenState extends ConsumerState<FridgeScreen> {
             ),
           ],
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.add_rounded, size: 24),
-            tooltip: 'Добавить вручную',
-            onPressed: () {
+      ),
+      floatingActionButton: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Secondary Non-Accented Manual Add Button (+)
+          GestureDetector(
+            onTap: () {
               HapticFeedback.lightImpact();
               showModalBottomSheet(
                 context: context,
@@ -69,24 +71,60 @@ class _FridgeScreenState extends ConsumerState<FridgeScreen> {
                 builder: (context) => const AddProductSheet(),
               );
             },
+            child: Container(
+              width: 46,
+              height: 46,
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.08),
+                    blurRadius: 10,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: const Icon(
+                Icons.add_rounded,
+                color: AppColors.textPrimary,
+                size: 24,
+              ),
+            ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 10),
+
+          // Primary Accented Scanning Button (Icon only)
+          GestureDetector(
+            onTap: () {
+              HapticFeedback.mediumImpact();
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const AiMagicScanScreen()),
+              );
+            },
+            child: Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                color: AppColors.primary,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.primary.withValues(alpha: 0.32),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: const Icon(
+                Icons.document_scanner_rounded,
+                color: AppColors.primaryForeground,
+                size: 26,
+              ),
+            ),
+          ),
         ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          HapticFeedback.mediumImpact();
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const AiMagicScanScreen()),
-          );
-        },
-        backgroundColor: AppColors.primary,
-        foregroundColor: AppColors.primaryForeground,
-        elevation: 2,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        icon: const Icon(Icons.camera_alt_rounded, size: 20),
-        label: const Text('Сканировать', style: TextStyle(fontWeight: FontWeight.w700)),
       ),
       body: CustomScrollView(
         slivers: [
