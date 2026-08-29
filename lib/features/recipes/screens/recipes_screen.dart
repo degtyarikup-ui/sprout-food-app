@@ -7,7 +7,6 @@ import '../../../core/theme/app_typography.dart';
 import '../providers/recipes_provider.dart';
 import 'recipe_detail_screen.dart';
 import 'recipe_reels_view.dart';
-import 'social_importer_modal.dart';
 
 class RecipesScreen extends ConsumerWidget {
   const RecipesScreen({super.key});
@@ -99,42 +98,6 @@ class RecipesScreen extends ConsumerWidget {
                                 ),
                               ),
                             ),
-                            const SizedBox(width: 8),
-
-                            // Import Link Button (Frosted Glass)
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(20),
-                              child: BackdropFilter(
-                                filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-                                child: GestureDetector(
-                                  onTap: () {
-                                    HapticFeedback.lightImpact();
-                                    showModalBottomSheet(
-                                      context: context,
-                                      isScrollControlled: true,
-                                      backgroundColor: Colors.transparent,
-                                      builder: (context) => const SocialImporterModal(),
-                                    );
-                                  },
-                                  child: Container(
-                                    width: 40,
-                                    height: 40,
-                                    decoration: BoxDecoration(
-                                      color: Colors.black.withValues(alpha: 0.35),
-                                      shape: BoxShape.circle,
-                                      border: Border.all(
-                                        color: Colors.white.withValues(alpha: 0.12),
-                                      ),
-                                    ),
-                                    child: const Icon(
-                                      Icons.link_rounded,
-                                      color: Colors.white,
-                                      size: 20,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
                           ],
                         ),
                       ],
@@ -216,19 +179,6 @@ class RecipesScreen extends ConsumerWidget {
                 ),
               ],
             ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.link_rounded, size: 22),
-            tooltip: 'Импорт из видео',
-            onPressed: () {
-              HapticFeedback.lightImpact();
-              showModalBottomSheet(
-                context: context,
-                isScrollControlled: true,
-                backgroundColor: Colors.transparent,
-                builder: (context) => const SocialImporterModal(),
-              );
-            },
           ),
           const SizedBox(width: 8),
         ],
