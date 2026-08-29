@@ -8,6 +8,7 @@ import '../../../core/theme/app_typography.dart';
 import '../../fridge/providers/fridge_provider.dart';
 import '../../grocery/models/grocery_item.dart';
 import '../../grocery/providers/grocery_provider.dart';
+import '../../premium/widgets/premium_gate.dart';
 import '../../profile/providers/user_preferences_provider.dart';
 import '../models/recipe.dart';
 import '../providers/recipes_provider.dart';
@@ -35,8 +36,16 @@ class _RecipeDetailScreenState extends ConsumerState<RecipeDetailScreen> {
     _servings = ref.read(userPreferencesProvider).defaultServings;
   }
 
-  void _showAiTransformerModal() {
+  void _showAiTransformerModal() async {
+    final hasPremium = await PremiumGate.check(
+      context,
+      ref,
+      featureName: 'Адаптация рецепта ИИ',
+    );
+    if (!hasPremium) return;
+
     final controller = TextEditingController();
+    if (!mounted) return;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,

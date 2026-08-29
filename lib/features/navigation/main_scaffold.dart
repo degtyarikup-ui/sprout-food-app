@@ -6,6 +6,7 @@ import '../../core/theme/app_typography.dart';
 import '../fridge/screens/fridge_screen.dart';
 import '../grocery/screens/grocery_screen.dart';
 import '../meal_planner/screens/meal_planner_screen.dart';
+import '../profile/screens/profile_screen.dart';
 import '../recipes/screens/recipes_screen.dart';
 
 final currentTabProvider = StateProvider<int>((ref) => 1); // Default to Лента or 0
@@ -18,12 +19,13 @@ class MainScaffold extends ConsumerWidget {
     final currentTab = ref.watch(currentTabProvider);
     final isDarkScreen = currentTab == 1; // Tab 1 = Лента (Recipes)
 
-    // 4 items: План, Лента, Продукты, Покупки
+    // 5 items: План, Лента, Продукты, Покупки, Профиль
     final List<Widget> screens = const [
       MealPlannerScreen(), // 0: План
       RecipesScreen(),     // 1: Лента
       FridgeScreen(),      // 2: Продукты
       GroceryScreen(),     // 3: Покупки
+      ProfileScreen(),     // 4: Профиль
     ];
 
     return Scaffold(
@@ -80,6 +82,15 @@ class MainScaffold extends ConsumerWidget {
                   isSelected: currentTab == 3,
                   isDarkScreen: isDarkScreen,
                 ),
+                _buildNavItem(
+                  ref: ref,
+                  index: 4,
+                  icon: Icons.person_outline_rounded,
+                  activeIcon: Icons.person_rounded,
+                  label: 'Профиль',
+                  isSelected: currentTab == 4,
+                  isDarkScreen: isDarkScreen,
+                ),
               ],
             ),
           ),
@@ -113,7 +124,7 @@ class MainScaffold extends ConsumerWidget {
       splashColor: Colors.transparent,
       highlightColor: Colors.transparent,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 10),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [

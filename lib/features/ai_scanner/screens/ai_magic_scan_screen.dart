@@ -11,6 +11,7 @@ import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/product_helper.dart';
 import '../../fridge/models/product_item.dart';
 import '../../fridge/providers/fridge_provider.dart';
+import '../../premium/widgets/premium_gate.dart';
 
 class AiMagicScanScreen extends ConsumerStatefulWidget {
   const AiMagicScanScreen({super.key});
@@ -32,6 +33,13 @@ class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
   final ImagePicker _picker = ImagePicker();
 
   Future<void> _pickImage(ImageSource source) async {
+    final hasPremium = await PremiumGate.check(
+      context,
+      ref,
+      featureName: 'Умный ИИ-сканер',
+    );
+    if (!hasPremium) return;
+
     try {
       final XFile? photo = await _picker.pickImage(
         source: source,
@@ -88,6 +96,13 @@ class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
   }
 
   Future<void> _processText() async {
+    final hasPremium = await PremiumGate.check(
+      context,
+      ref,
+      featureName: 'Распознавание списка продуктов',
+    );
+    if (!hasPremium) return;
+
     final text = _textInputController.text.trim();
     if (text.isEmpty) return;
 

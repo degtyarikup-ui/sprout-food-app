@@ -8,6 +8,7 @@ import '../../../core/theme/app_typography.dart';
 import '../../fridge/providers/fridge_provider.dart';
 import '../../grocery/models/grocery_item.dart';
 import '../../grocery/providers/grocery_provider.dart';
+import '../../premium/widgets/premium_gate.dart';
 import '../models/recipe.dart';
 import '../providers/recipes_provider.dart';
 import 'recipe_detail_screen.dart';
@@ -78,6 +79,14 @@ class _RecipeReelsViewState extends ConsumerState<RecipeReelsView> {
   }
 
   Future<void> _generateAiRecipes() async {
+    final hasPremium = await PremiumGate.check(
+      context,
+      ref,
+      featureName: 'Генерация рецептов Шеф-ИИ',
+    );
+    if (!hasPremium) return;
+    if (!mounted) return;
+
     final fridgeItems = ref.read(fridgeProvider);
     if (fridgeItems.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
