@@ -10,14 +10,16 @@ import '../../features/recipes/models/recipe.dart';
 
 class GeminiAIService {
   static String? _customApiKey;
-  static const String _prefKey = 'user_gemini_api_key';
+  static const String _prefKey = 'user_gemini_api_key_v2';
 
   static Future<void> loadSavedApiKey() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final saved = prefs.getString(_prefKey);
-      if (saved != null && saved.isNotEmpty) {
-        _customApiKey = saved;
+      if (saved != null && saved.trim().isNotEmpty) {
+        _customApiKey = saved.trim();
+      } else {
+        _customApiKey = null;
       }
     } catch (_) {}
   }
@@ -51,7 +53,7 @@ class GeminiAIService {
 Твоя задача — внимательно изучить изображение чека или текст: "${rawOcrText ?? ''}".
 
 ПРАВИЛА:
-1. Если на фото НЕТ кассового чека, списка покупок или продуктов питания (например, пустая комната, мебель, стена, улица, человек, случайный предмет), верни ТОЛЬКО пустой JSON-массив: []
+1. Если на фото НЕТ кассового чека, списка покупок или продуктов питания (например, пустая комната, мебель, стена, улица, человек, мышка, ноутбук, случайный предмет), верни ТОЛЬКО пустой JSON-массив: []
 2. Если продукты или позиции чека найдены, распознай их и верни строго JSON массив объектов:
 [
   {
@@ -71,7 +73,7 @@ class GeminiAIService {
 Твоя задача — внимательно определить ВСЕ реальные продукты питания на фото.
 
 ПРАВИЛА:
-1. ВНИМАНИЕ: Если на фото НЕТ продуктов питания, открытого холодильника или еды (например: пустая комната, мебель, стена, пол, человек, автомобиль, бытовые приборы), ты ОБЯЗАН вернуть ТОЛЬКО пустой JSON массив: []
+1. ВНИМАНИЕ: Если на фото НЕТ продуктов питания, открытого холодильника или еды (например: пустая комната, рабочий стол, мышка, ноутбук, мебель, стена, пол, человек, автомобиль, бытовые приборы), ты ОБЯЗАН вернуть ТОЛЬКО пустой JSON массив: []
 2. Не придумывай продукты, если их нет на изображении.
 3. Если продукты обнаружены, верни JSON массив:
 [
@@ -230,7 +232,7 @@ class GeminiAIService {
     );
   }
 
-  /// Calls Gemini 1.5 Flash REST API (High performance, lowest cost)
+  /// Calls Gemini 3.6 Flash REST API (High performance, lowest cost)
   static Future<String> _callGeminiMultimodal({
     required String prompt,
     Uint8List? imageBytes,
@@ -276,11 +278,12 @@ class GeminiAIService {
       return text;
     } else {
       final errBody = response.body;
-      if (response.statusCode == 401 || response.statusCode == 403) {
+      final code = response.statusCode;
+      if (code == 401 || code == 403) {
         throw Exception(
-            'Ошибка авторизации Gemini ($response.statusCode). Требуется API-ключ Gemini (начинается на AIzaSy...) из https://aistudio.google.com/app/apikey');
+            'Ошибка авторизации Gemini ($code). Проверьте ключ API в настройках.');
       }
-      throw Exception('Ошибка Gemini API (${response.statusCode}): $errBody');
+      throw Exception('Ошибка Gemini API ($code): $errBody');
     }
   }
 
