@@ -6,6 +6,8 @@ class CookingStep {
   final String? parallelTaskHint;   // "Пока вода закипает, нарежьте курицу"
   final String? tip;                // Chef tip
   final String? familyVariantNote;  // "Для детской порции отложите часть соуса до перца"
+  final String? imageUrl;           // Visual intermediate step photo
+  final String? videoUrl;           // Short video demonstration
 
   const CookingStep({
     required this.stepNumber,
@@ -15,6 +17,8 @@ class CookingStep {
     this.parallelTaskHint,
     this.tip,
     this.familyVariantNote,
+    this.imageUrl,
+    this.videoUrl,
   });
 
   CookingStep copyWith({
@@ -25,6 +29,8 @@ class CookingStep {
     String? parallelTaskHint,
     String? tip,
     String? familyVariantNote,
+    String? imageUrl,
+    String? videoUrl,
   }) {
     return CookingStep(
       stepNumber: stepNumber ?? this.stepNumber,
@@ -34,6 +40,8 @@ class CookingStep {
       parallelTaskHint: parallelTaskHint ?? this.parallelTaskHint,
       tip: tip ?? this.tip,
       familyVariantNote: familyVariantNote ?? this.familyVariantNote,
+      imageUrl: imageUrl ?? this.imageUrl,
+      videoUrl: videoUrl ?? this.videoUrl,
     );
   }
 
@@ -46,6 +54,8 @@ class CookingStep {
       'parallelTaskHint': parallelTaskHint,
       'tip': tip,
       'familyVariantNote': familyVariantNote,
+      'imageUrl': imageUrl,
+      'videoUrl': videoUrl,
     };
   }
 
@@ -58,6 +68,8 @@ class CookingStep {
       parallelTaskHint: json['parallelTaskHint'] as String?,
       tip: json['tip'] as String?,
       familyVariantNote: json['familyVariantNote'] as String?,
+      imageUrl: json['imageUrl'] as String?,
+      videoUrl: json['videoUrl'] as String?,
     );
   }
 }
