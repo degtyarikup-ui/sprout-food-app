@@ -8,6 +8,7 @@ import 'package:speech_to_text/speech_to_text.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../analytics/providers/eco_savings_provider.dart';
+import '../../fridge/providers/fridge_provider.dart';
 import '../models/cooking_step.dart';
 import '../models/recipe.dart';
 
@@ -290,75 +291,200 @@ class _SmartCookingScreenState extends ConsumerState<SmartCookingScreen>
           savedKg: 0.4,
         );
 
+    final fridgeItems = ref.read(fridgeProvider);
+    final Map<String, double> deductionItems = {};
+    final Map<String, bool> selectedForDeduction = {};
+    final Map<String, String> unitMap = {};
+
+    for (final ing in widget.recipe.ingredients) {
+      final match = fridgeItems.firstWhere(
+        (f) => f.name.toLowerCase().contains(ing.name.toLowerCase()) || ing.name.toLowerCase().contains(f.name.toLowerCase()),
+        orElse: () => fridgeItems.first,
+      );
+
+      final isFound = fridgeItems.any(
+        (f) => f.name.toLowerCase().contains(ing.name.toLowerCase()) || ing.name.toLowerCase().contains(f.name.toLowerCase()),
+      );
+
+      if (isFound) {
+        deductionItems[match.name] = ing.amount;
+        selectedForDeduction[match.name] = true;
+        unitMap[match.name] = ing.unit;
+      }
+    }
+
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppColors.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: const Center(
-          child: Column(
-            children: [
-              Icon(Icons.check_circle_outline_rounded, size: 48, color: AppColors.primary),
-              SizedBox(height: 10),
-              Text('Блюдо готово!', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.w800)),
-            ],
-          ),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'Вы приготовили «${widget.recipe.title}». Продукты успешно использованы.',
-              textAlign: TextAlign.center,
-              style: AppTypography.bodyMedium,
-            ),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AppColors.surfaceMuted,
-                borderRadius: BorderRadius.circular(16),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              backgroundColor: AppColors.surface,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+              title: const Center(
+                child: Column(
+                  children: [
+                    Icon(Icons.check_circle_outline_rounded, size: 48, color: AppColors.primary),
+                    SizedBox(height: 10),
+                    Text('Блюдо готово!', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.w800)),
+                  ],
+                ),
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  Column(
-                    children: [
-                      Text('+320 ₽', style: AppTypography.titleLarge.copyWith(fontWeight: FontWeight.w800)),
-                      Text('Сэкономлено', style: AppTypography.labelSmall),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Вы приготовили «${widget.recipe.title}». Списать продукты из холодильника?',
+                      textAlign: TextAlign.center,
+                      style: AppTypography.bodyMedium,
+                    ),
+                    const SizedBox(height: 14),
+
+                    if (deductionItems.isNotEmpty) ...[
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: AppColors.surfaceMuted,
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Использовано из запасов:',
+                              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
+                            ),
+                            const SizedBox(height: 8),
+                            ...deductionItems.keys.map((itemName) {
+                              final isSelected = selectedForDeduction[itemName] ?? true;
+                              final amount = deductionItems[itemName] ?? 1.0;
+                              final unit = unitMap[itemName] ?? 'шт';
+
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 4),
+                                child: Row(
+                                  children: [
+                                    Checkbox(
+                                      value: isSelected,
+                                      activeColor: AppColors.primary,
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                                      onChanged: (val) {
+                                        setDialogState(() {
+                                          selectedForDeduction[itemName] = val ?? true;
+                                        });
+                                      },
+                                    ),
+                                    Expanded(
+                                      child: Text(
+                                        itemName,
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                          color: isSelected ? AppColors.textPrimary : AppColors.textTertiary,
+                                        ),
+                                      ),
+                                    ),
+                                    Text(
+                                      '${amount.toStringAsFixed(amount % 1 == 0 ? 0 : 1)} $unit',
+                                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 14),
                     ],
-                  ),
-                  Column(
-                    children: [
-                      Text('+0.4 кг', style: AppTypography.titleLarge.copyWith(fontWeight: FontWeight.w800)),
-                      Text('Спасенная еда', style: AppTypography.labelSmall),
-                    ],
-                  ),
-                ],
+
+                    // Eco Savings Capsule
+                    Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceMuted,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          Column(
+                            children: [
+                              Text('+320 ₽', style: AppTypography.titleLarge.copyWith(fontWeight: FontWeight.w800)),
+                              Text('Сэкономлено', style: AppTypography.labelSmall),
+                            ],
+                          ),
+                          Column(
+                            children: [
+                              Text('+0.4 кг', style: AppTypography.titleLarge.copyWith(fontWeight: FontWeight.w800)),
+                              Text('Спасенная еда', style: AppTypography.labelSmall),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
-        ),
-        actions: [
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: AppColors.primaryForeground,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              ),
-              onPressed: () {
-                Navigator.pop(context); // Close dialog
-                Navigator.pop(context); // Close cooking screen
-              },
-              child: const Text('Завершить', style: TextStyle(fontWeight: FontWeight.w700)),
-            ),
-          ),
-        ],
-      ),
+              actions: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextButton(
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                        onPressed: () {
+                          Navigator.pop(context); // Close dialog
+                          Navigator.pop(context); // Close cooking screen
+                        },
+                        child: const Text('Не списывать', style: TextStyle(color: AppColors.textTertiary)),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      flex: 2,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: AppColors.primaryForeground,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                          elevation: 0,
+                        ),
+                        onPressed: () {
+                          final Map<String, double> toDeduct = {};
+                          for (final entry in selectedForDeduction.entries) {
+                            if (entry.value && deductionItems.containsKey(entry.key)) {
+                              toDeduct[entry.key] = deductionItems[entry.key]!;
+                            }
+                          }
+                          if (toDeduct.isNotEmpty) {
+                            ref.read(fridgeProvider.notifier).deductIngredients(toDeduct);
+                          }
+                          Navigator.pop(context); // Close dialog
+                          Navigator.pop(context); // Close cooking screen
+                          ScaffoldMessenger.of(this.context).showSnackBar(
+                            const SnackBar(
+                              backgroundColor: AppColors.primary,
+                              behavior: SnackBarBehavior.floating,
+                              content: Text('Продукты успешно списаны из остатков холодильника!'),
+                            ),
+                          );
+                        },
+                        child: const Text('Списать и выйти', style: TextStyle(fontWeight: FontWeight.w700)),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 

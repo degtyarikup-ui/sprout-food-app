@@ -8,6 +8,7 @@ import '../../../core/theme/app_typography.dart';
 import '../../fridge/providers/fridge_provider.dart';
 import '../../grocery/models/grocery_item.dart';
 import '../../grocery/providers/grocery_provider.dart';
+import '../../profile/providers/user_preferences_provider.dart';
 import '../models/recipe.dart';
 import '../providers/recipes_provider.dart';
 import 'short_cooking_reel_modal.dart';
@@ -31,7 +32,7 @@ class _RecipeDetailScreenState extends ConsumerState<RecipeDetailScreen> {
   void initState() {
     super.initState();
     _currentRecipe = widget.recipe;
-    _servings = widget.recipe.defaultServings;
+    _servings = ref.read(userPreferencesProvider).defaultServings;
   }
 
   void _showAiTransformerModal() {

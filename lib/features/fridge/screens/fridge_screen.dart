@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../ai_scanner/screens/ai_magic_scan_screen.dart';
+import '../../profile/screens/preferences_modal.dart';
 import '../models/freshness_category.dart';
 import '../models/product_item.dart';
 import '../providers/fridge_provider.dart';
@@ -56,6 +57,22 @@ class _FridgeScreenState extends ConsumerState<FridgeScreen> {
             ),
           ],
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.tune_rounded, size: 22),
+            tooltip: 'Настройки питания и порций',
+            onPressed: () {
+              HapticFeedback.lightImpact();
+              showModalBottomSheet(
+                context: context,
+                isScrollControlled: true,
+                backgroundColor: Colors.transparent,
+                builder: (context) => const PreferencesModal(),
+              );
+            },
+          ),
+          const SizedBox(width: 8),
+        ],
       ),
       floatingActionButton: Row(
         mainAxisSize: MainAxisSize.min,

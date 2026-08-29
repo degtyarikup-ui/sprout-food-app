@@ -556,7 +556,7 @@ class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
       ),
       body: Column(
         children: [
-          // Mode Selector
+          // Mode Selector (4 clean modes: Чек, Покупки, Полка, Текст)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Container(
@@ -567,16 +567,17 @@ class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
               ),
               child: Row(
                 children: [
-                  _buildTabButton(0, 'Кассовый чек'),
-                  _buildTabButton(1, 'Продукты'),
-                  _buildTabButton(2, 'Текст списка'),
+                  _buildTabButton(0, 'Чек'),
+                  _buildTabButton(1, 'Покупки'),
+                  _buildTabButton(2, 'Полка'),
+                  _buildTabButton(3, 'Текст'),
                 ],
               ),
             ),
           ),
 
           Expanded(
-            child: _selectedMode == 2 ? _buildTextModeView() : _buildInitialCameraView(),
+            child: _selectedMode == 3 ? _buildTextModeView() : _buildInitialCameraView(),
           ),
         ],
       ),

@@ -136,8 +136,36 @@ class FridgeNotifier extends StateNotifier<List<ProductItem>> {
     await _persist();
   }
 
-  Future<void> updateProduct(ProductItem updated) async {
-    state = state.map((item) => item.id == updated.id ? updated : item).toList();
+  Future<void> addMultipleProducts(List<ProductItem> items) async {
+    state = [...items, ...state];
+    await _persist();
+  }
+
+  /// Deduct specific quantities of ingredients used during cooking
+  Future<void> deductIngredients(Map<String, double> deductions) async {
+    final List<ProductItem> updatedList = [];
+
+    for (final item in state) {
+      final key = deductions.keys.firstWhere(
+        (k) => item.name.toLowerCase().contains(k.toLowerCase()) || k.toLowerCase().contains(item.name.toLowerCase()),
+        orElse: () => '',
+      );
+
+      if (key.isNotEmpty) {
+        final deductAmount = deductions[key]!;
+        final newAmount = item.amount - deductAmount;
+
+        if (newAmount > 0.05) {
+          // Reduce amount
+          updatedList.add(item.copyWith(amount: newAmount));
+        }
+        // If <= 0, item is fully consumed and removed from fridge!
+      } else {
+        updatedList.add(item);
+      }
+    }
+
+    state = updatedList;
     await _persist();
   }
 
