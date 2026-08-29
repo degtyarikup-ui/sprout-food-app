@@ -1118,76 +1118,76 @@ class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
   /// Frosted List View for review when switching to the "Список" tab
   Widget _buildFrostedListView(double topPadding, double bottomPadding) {
     return Positioned.fill(
-      top: topPadding + 64,
-      bottom: bottomPadding + 80,
-      child: ClipRRect(
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 28, sigmaY: 28),
-          child: Container(
-            color: Colors.black.withValues(alpha: 0.65),
-            child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              itemCount: _recognizedItems.length,
-              itemBuilder: (context, index) {
-                final item = _recognizedItems[index];
-                return Dismissible(
-                  key: Key('scan_${item.name}_$index'),
-                  direction: DismissDirection.endToStart,
-                  background: Container(
-                    alignment: Alignment.centerRight,
-                    padding: const EdgeInsets.only(right: 16),
-                    decoration: BoxDecoration(
-                      color: AppColors.statusUrgent,
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: const Icon(Icons.delete_outline_rounded, color: Colors.white),
+      top: 0,
+      bottom: 0,
+      left: 0,
+      right: 0,
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 28, sigmaY: 28),
+        child: Container(
+          color: Colors.black.withValues(alpha: 0.68),
+          child: ListView.builder(
+            padding: EdgeInsets.fromLTRB(16, topPadding + 64, 16, bottomPadding + 84),
+            itemCount: _recognizedItems.length,
+            itemBuilder: (context, index) {
+              final item = _recognizedItems[index];
+              return Dismissible(
+                key: Key('scan_${item.name}_$index'),
+                direction: DismissDirection.endToStart,
+                background: Container(
+                  alignment: Alignment.centerRight,
+                  padding: const EdgeInsets.only(right: 16),
+                  decoration: BoxDecoration(
+                    color: AppColors.statusUrgent,
+                    borderRadius: BorderRadius.circular(14),
                   ),
-                  onDismissed: (_) => _removeItem(index),
-                  child: Container(
-                    margin: const EdgeInsets.only(bottom: 8),
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Row(
-                      children: [
-                        Text(item.emoji, style: const TextStyle(fontSize: 22)),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                item.name,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                '${item.amount.toStringAsFixed(item.amount % 1 == 0 ? 0 : 1)} ${item.unit} • ${item.category} • ${item.daysUntilExpiry} дн.',
-                                style: const TextStyle(color: Colors.white70, fontSize: 12),
-                              ),
-                            ],
-                          ),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.edit_outlined, color: Colors.white70, size: 20),
-                          onPressed: () => _showEditItemSheet(item, index),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.close_rounded, color: Colors.white38, size: 20),
-                          onPressed: () => _removeItem(index),
-                        ),
-                      ],
-                    ),
+                  child: const Icon(Icons.delete_outline_rounded, color: Colors.white),
+                ),
+                onDismissed: (_) => _removeItem(index),
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(16),
                   ),
-                );
-              },
-            ),
+                  child: Row(
+                    children: [
+                      Text(item.emoji, style: const TextStyle(fontSize: 22)),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              item.name,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              '${item.amount.toStringAsFixed(item.amount % 1 == 0 ? 0 : 1)} ${item.unit} • ${item.category} • ${item.daysUntilExpiry} дн.',
+                              style: const TextStyle(color: Colors.white70, fontSize: 12),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.edit_outlined, color: Colors.white70, size: 20),
+                        onPressed: () => _showEditItemSheet(item, index),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close_rounded, color: Colors.white38, size: 20),
+                        onPressed: () => _removeItem(index),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
           ),
         ),
       ),
