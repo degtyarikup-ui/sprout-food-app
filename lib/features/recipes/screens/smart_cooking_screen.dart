@@ -73,12 +73,7 @@ class _SmartCookingScreenState extends ConsumerState<SmartCookingScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Row(
-          children: [
-            Text('⏰ ', style: TextStyle(fontSize: 28)),
-            Text('Таймер завершен!'),
-          ],
-        ),
+        title: const Text('Таймер завершен'),
         content: const Text('Блюдо готово к следующему этапу. Проверьте готовность и переходите дальше.'),
         actions: [
           ElevatedButton(
@@ -86,7 +81,7 @@ class _SmartCookingScreenState extends ConsumerState<SmartCookingScreen> {
               Navigator.pop(context);
               _nextStep();
             },
-            child: const Text('Следующий шаг →'),
+            child: const Text('Следующий шаг'),
           ),
         ],
       ),
@@ -126,13 +121,13 @@ class _SmartCookingScreenState extends ConsumerState<SmartCookingScreen> {
       context: context,
       barrierDismissible: false,
       builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Center(
           child: Column(
             children: [
-              Text('🎉', style: TextStyle(fontSize: 48)),
+              Icon(Icons.check_circle_outline_rounded, size: 48, color: AppColors.primary),
               SizedBox(height: 8),
-              Text('Блюдо готово!', textAlign: TextAlign.center),
+              Text('Блюдо готово', textAlign: TextAlign.center),
             ],
           ),
         ),
@@ -140,7 +135,7 @@ class _SmartCookingScreenState extends ConsumerState<SmartCookingScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              'Вы приготовили «${widget.recipe.title}». Продукты успешно спасены от выбрасывания!',
+              'Вы приготовили «${widget.recipe.title}». Продукты сохранены от списания.',
               textAlign: TextAlign.center,
               style: AppTypography.bodyMedium,
             ),
@@ -148,7 +143,7 @@ class _SmartCookingScreenState extends ConsumerState<SmartCookingScreen> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: AppColors.primary.withOpacity(0.12),
+                color: AppColors.surfaceMuted,
                 borderRadius: BorderRadius.circular(14),
               ),
               child: Row(
@@ -156,13 +151,13 @@ class _SmartCookingScreenState extends ConsumerState<SmartCookingScreen> {
                 children: [
                   Column(
                     children: [
-                      Text('+320 ₽', style: AppTypography.titleMedium.copyWith(color: AppColors.primary)),
+                      Text('+320 ₽', style: AppTypography.titleMedium),
                       Text('Сэкономлено', style: AppTypography.labelSmall),
                     ],
                   ),
                   Column(
                     children: [
-                      Text('+0.4 кг', style: AppTypography.titleMedium.copyWith(color: AppColors.primary)),
+                      Text('+0.4 кг', style: AppTypography.titleMedium),
                       Text('Спасенная еда', style: AppTypography.labelSmall),
                     ],
                   ),
@@ -179,7 +174,7 @@ class _SmartCookingScreenState extends ConsumerState<SmartCookingScreen> {
                 Navigator.pop(context); // Close dialog
                 Navigator.pop(context); // Close cooking screen
               },
-              child: const Text('Приятного аппетита!'),
+              child: const Text('Готово'),
             ),
           ),
         ],
@@ -195,45 +190,38 @@ class _SmartCookingScreenState extends ConsumerState<SmartCookingScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final steps = widget.recipe.steps;
     final currentStep = steps[_currentStepIndex];
     final progress = (_currentStepIndex + 1) / steps.length;
 
     return Scaffold(
-      backgroundColor: isDark ? AppColors.backgroundDark : AppColors.backgroundLight,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.close_rounded),
           onPressed: () => Navigator.pop(context),
         ),
-        title: Text('Hands-Free Шеф 👨‍🍳', style: AppTypography.titleMedium),
+        title: Text('Режим готовки', style: AppTypography.titleMedium),
         actions: [
-          // Voice Assistant Indicator
           Container(
             margin: const EdgeInsets.only(right: 16),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              color: _isListeningVoice
-                  ? AppColors.primary.withOpacity(0.15)
-                  : Colors.grey.withOpacity(0.2),
+              color: AppColors.surfaceMuted,
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: _isListeningVoice ? AppColors.primary : Colors.transparent,
-              ),
             ),
             child: Row(
               children: [
                 Icon(
                   _isListeningVoice ? Icons.mic_rounded : Icons.mic_off_rounded,
                   size: 16,
-                  color: _isListeningVoice ? AppColors.primary : Colors.grey,
+                  color: AppColors.textPrimary,
                 ),
                 const SizedBox(width: 6),
                 Text(
                   _isListeningVoice ? 'Голос активен' : 'Голос выкл',
                   style: AppTypography.labelSmall.copyWith(
-                    color: _isListeningVoice ? AppColors.primary : Colors.grey,
+                    color: AppColors.textPrimary,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -256,7 +244,7 @@ class _SmartCookingScreenState extends ConsumerState<SmartCookingScreen> {
                       Text(
                         'Шаг ${_currentStepIndex + 1} из ${steps.length}',
                         style: AppTypography.labelSmall.copyWith(
-                          color: AppColors.primary,
+                          color: AppColors.textPrimary,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
@@ -271,7 +259,7 @@ class _SmartCookingScreenState extends ConsumerState<SmartCookingScreen> {
                     borderRadius: BorderRadius.circular(6),
                     child: LinearProgressIndicator(
                       value: progress,
-                      minHeight: 6,
+                      minHeight: 4,
                       backgroundColor: AppColors.cardBorder,
                       color: AppColors.primary,
                     ),
@@ -289,31 +277,22 @@ class _SmartCookingScreenState extends ConsumerState<SmartCookingScreen> {
                     // Step Title
                     Text(
                       currentStep.title,
-                      style: AppTypography.displayMedium.copyWith(fontSize: 24),
+                      style: AppTypography.displayMedium.copyWith(fontSize: 22),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 14),
 
                     // Big Readable Instruction Text
                     Container(
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
-                        color: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
-                        borderRadius: BorderRadius.circular(24),
-                        border: Border.all(
-                          color: isDark ? AppColors.cardBorderDark : AppColors.cardBorder,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.03),
-                            blurRadius: 10,
-                            offset: const Offset(0, 4),
-                          )
-                        ],
+                        color: AppColors.surface,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: AppColors.cardBorder),
                       ),
                       child: Text(
                         currentStep.instruction,
                         style: AppTypography.bodyLarge.copyWith(
-                          fontSize: 19,
+                          fontSize: 18,
                           height: 1.5,
                           fontWeight: FontWeight.w500,
                         ),
@@ -322,34 +301,30 @@ class _SmartCookingScreenState extends ConsumerState<SmartCookingScreen> {
 
                     // Parallel Task (Smart Multitasking Sync)
                     if (currentStep.parallelTaskHint != null) ...[
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 14),
                       Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFFEF9E7),
-                          borderRadius: BorderRadius.circular(18),
-                          border: Border.all(color: const Color(0xFFF9E79F)),
+                          color: AppColors.surfaceMuted,
+                          borderRadius: BorderRadius.circular(16),
                         ),
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('⚡ ', style: TextStyle(fontSize: 20)),
+                            const Icon(Icons.flash_on_rounded, size: 20, color: AppColors.textPrimary),
+                            const SizedBox(width: 10),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    'Параллельная задача (Smart Sync):',
-                                    style: AppTypography.labelLarge.copyWith(
-                                      color: const Color(0xFF7D6608),
-                                    ),
+                                    'Параллельная задача:',
+                                    style: AppTypography.labelMedium,
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
                                     currentStep.parallelTaskHint!,
-                                    style: AppTypography.bodyMedium.copyWith(
-                                      color: const Color(0xFF7D6608),
-                                    ),
+                                    style: AppTypography.bodyMedium,
                                   ),
                                 ],
                               ),
@@ -365,30 +340,26 @@ class _SmartCookingScreenState extends ConsumerState<SmartCookingScreen> {
                       Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: AppColors.secondaryContainer,
-                          borderRadius: BorderRadius.circular(18),
-                          border: Border.all(color: AppColors.secondary.withOpacity(0.3)),
+                          color: AppColors.surfaceMuted,
+                          borderRadius: BorderRadius.circular(16),
                         ),
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('👶 ', style: TextStyle(fontSize: 20)),
+                            const Icon(Icons.family_restroom_rounded, size: 20, color: AppColors.textPrimary),
+                            const SizedBox(width: 10),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    'Адаптер для семьи (Split Portion):',
-                                    style: AppTypography.labelLarge.copyWith(
-                                      color: const Color(0xFF873600),
-                                    ),
+                                    'Для семьи:',
+                                    style: AppTypography.labelMedium,
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
                                     currentStep.familyVariantNote!,
-                                    style: AppTypography.bodyMedium.copyWith(
-                                      color: const Color(0xFF873600),
-                                    ),
+                                    style: AppTypography.bodyMedium,
                                   ),
                                 ],
                               ),
@@ -400,15 +371,15 @@ class _SmartCookingScreenState extends ConsumerState<SmartCookingScreen> {
 
                     // Active Step Timer if available
                     if (currentStep.timerDurationSeconds != null && currentStep.timerDurationSeconds! > 0) ...[
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 16),
                       Container(
-                        padding: const EdgeInsets.all(20),
+                        padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: isDark ? AppColors.surfaceElevatedDark : AppColors.surfaceElevatedLight,
-                          borderRadius: BorderRadius.circular(22),
+                          color: AppColors.surface,
+                          borderRadius: BorderRadius.circular(18),
                           border: Border.all(
                             color: _isTimerRunning ? AppColors.primary : AppColors.cardBorder,
-                            width: _isTimerRunning ? 2 : 1,
+                            width: _isTimerRunning ? 1.5 : 1,
                           ),
                         ),
                         child: Row(
@@ -418,20 +389,20 @@ class _SmartCookingScreenState extends ConsumerState<SmartCookingScreen> {
                               children: [
                                 Icon(
                                   Icons.timer_outlined,
-                                  size: 32,
-                                  color: _isTimerRunning ? AppColors.primary : AppColors.textSecondaryLight,
+                                  size: 28,
+                                  color: AppColors.textPrimary,
                                 ),
-                                const SizedBox(width: 14),
+                                const SizedBox(width: 12),
                                 Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text('Встроенный таймер', style: AppTypography.bodySmall),
+                                    Text('Таймер шага', style: AppTypography.bodySmall),
                                     Text(
                                       _formatSeconds(_remainingSeconds),
                                       style: AppTypography.displayMedium.copyWith(
-                                        fontSize: 28,
+                                        fontSize: 24,
                                         fontWeight: FontWeight.w800,
-                                        color: _isTimerRunning ? AppColors.primary : null,
+                                        color: AppColors.textPrimary,
                                       ),
                                     ),
                                   ],
@@ -440,8 +411,9 @@ class _SmartCookingScreenState extends ConsumerState<SmartCookingScreen> {
                             ),
                             ElevatedButton(
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: _isTimerRunning ? AppColors.urgentExpiring : AppColors.primary,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                backgroundColor: _isTimerRunning ? AppColors.surfaceMuted : AppColors.primary,
+                                foregroundColor: _isTimerRunning ? AppColors.textPrimary : AppColors.primaryForeground,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                               ),
                               onPressed: _toggleTimer,
                               child: Text(_isTimerRunning ? 'Пауза' : 'Старт'),
@@ -452,21 +424,21 @@ class _SmartCookingScreenState extends ConsumerState<SmartCookingScreen> {
                     ],
 
                     // Voice Commands Helper Footer
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 20),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                       decoration: BoxDecoration(
-                        color: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
-                        borderRadius: BorderRadius.circular(14),
+                        color: AppColors.surfaceMuted,
+                        borderRadius: BorderRadius.circular(12),
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.info_outline_rounded, size: 18, color: AppColors.textTertiaryLight),
+                          const Icon(Icons.info_outline_rounded, size: 16, color: AppColors.textTertiary),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              'Скажите вслух: «Дальше», «Назад» или «Поставь таймер»',
-                              style: AppTypography.bodySmall.copyWith(fontSize: 12),
+                              'Голосовые команды: «Дальше», «Назад» или «Поставь таймер»',
+                              style: AppTypography.bodySmall.copyWith(fontSize: 11),
                             ),
                           ),
                         ],
@@ -479,35 +451,29 @@ class _SmartCookingScreenState extends ConsumerState<SmartCookingScreen> {
 
             // Navigation Bottom Control Bar
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-              decoration: BoxDecoration(
-                color: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
-                border: Border(top: BorderSide(color: isDark ? AppColors.cardBorderDark : AppColors.cardBorder)),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+              decoration: const BoxDecoration(
+                color: AppColors.surface,
+                border: Border(top: BorderSide(color: AppColors.divider)),
               ),
               child: Row(
                 children: [
                   if (_currentStepIndex > 0) ...[
                     OutlinedButton(
                       onPressed: _prevStep,
-                      child: const Icon(Icons.arrow_back_rounded),
+                      child: const Icon(Icons.arrow_back_rounded, size: 20),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 10),
                   ],
                   Expanded(
-                    child: ElevatedButton(
-                      onPressed: _nextStep,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            _currentStepIndex == steps.length - 1 ? 'Завершить готовку ✨' : 'Следующий шаг',
-                            style: AppTypography.labelLarge.copyWith(color: Colors.white, fontSize: 16),
-                          ),
-                          if (_currentStepIndex < steps.length - 1) ...[
-                            const SizedBox(width: 8),
-                            const Icon(Icons.arrow_forward_rounded, size: 20),
-                          ],
-                        ],
+                    child: SizedBox(
+                      height: 50,
+                      child: ElevatedButton(
+                        onPressed: _nextStep,
+                        child: Text(
+                          _currentStepIndex == steps.length - 1 ? 'Завершить готовку' : 'Следующий шаг',
+                          style: AppTypography.labelLarge,
+                        ),
                       ),
                     ),
                   ),

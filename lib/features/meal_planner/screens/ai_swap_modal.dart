@@ -14,39 +14,33 @@ class AiSwapModal extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final allRecipes = kCuratedRecipes;
 
     return Container(
       height: MediaQuery.of(context).size.height * 0.75,
       padding: const EdgeInsets.only(left: 20, right: 20, top: 16, bottom: 24),
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+      decoration: const BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Center(
             child: Container(
-              width: 40,
+              width: 36,
               height: 4,
               decoration: BoxDecoration(
-                color: AppColors.cardBorder,
+                color: AppColors.divider,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
           ),
           const SizedBox(height: 16),
-          Row(
-            children: [
-              const Text('⚡ ', style: TextStyle(fontSize: 24)),
-              Text('AI Замена блюда', style: AppTypography.titleLarge),
-            ],
-          ),
+          Text('Замена блюда', style: AppTypography.titleLarge),
           const SizedBox(height: 4),
           Text(
-            'Выберите альтернативное блюдо для слота «${slot.type.label}»',
+            'Выберите альтернативное блюдо для «${slot.type.label}»',
             style: AppTypography.bodySmall,
           ),
           const SizedBox(height: 16),
@@ -59,31 +53,31 @@ class AiSwapModal extends ConsumerWidget {
                 final isCurrent = slot.recipe?.id == r.id;
 
                 return Container(
-                  margin: const EdgeInsets.only(bottom: 12),
+                  margin: const EdgeInsets.only(bottom: 10),
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: isDark ? AppColors.surfaceElevatedDark : AppColors.surfaceElevatedLight,
+                    color: AppColors.surface,
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
-                      color: isCurrent ? AppColors.primary : Colors.transparent,
-                      width: 1.5,
+                      color: isCurrent ? AppColors.primary : AppColors.cardBorder,
+                      width: isCurrent ? 1.5 : 1,
                     ),
                   ),
                   child: Row(
                     children: [
                       ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(10),
                         child: r.imageUrl.startsWith('assets/')
                             ? Image.asset(
                                 r.imageUrl,
-                                width: 64,
-                                height: 64,
+                                width: 56,
+                                height: 56,
                                 fit: BoxFit.cover,
                               )
                             : Image.network(
                                 r.imageUrl,
-                                width: 64,
-                                height: 64,
+                                width: 56,
+                                height: 56,
                                 fit: BoxFit.cover,
                               ),
                       ),
@@ -95,24 +89,24 @@ class AiSwapModal extends ConsumerWidget {
                             Text(r.title, style: AppTypography.titleSmall),
                             const SizedBox(height: 2),
                             Text(
-                              '${r.totalTimeMinutes} мин • ${r.calories} ккал • ${r.difficulty}',
-                              style: AppTypography.bodySmall.copyWith(
-                                color: isDark ? AppColors.textTertiaryDark : AppColors.textTertiaryLight,
-                              ),
+                              '${r.totalTimeMinutes} мин • ${r.calories} ккал',
+                              style: AppTypography.bodySmall,
                             ),
                           ],
                         ),
                       ),
                       ElevatedButton(
                         style: ElevatedButton.styleFrom(
+                          backgroundColor: isCurrent ? AppColors.surfaceMuted : AppColors.primary,
+                          foregroundColor: isCurrent ? AppColors.textPrimary : AppColors.primaryForeground,
                           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
                         onPressed: () {
                           ref.read(mealPlannerProvider.notifier).swapSlotRecipe(dayDate, slot.id, r);
                           Navigator.pop(context);
                         },
-                        child: Text(isCurrent ? 'Выбрано' : 'Заменить'),
+                        child: Text(isCurrent ? 'Выбрано' : 'Выбрать'),
                       ),
                     ],
                   ),

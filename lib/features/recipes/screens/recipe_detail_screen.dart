@@ -42,16 +42,14 @@ class _RecipeDetailScreenState extends ConsumerState<RecipeDetailScreen> {
       backgroundColor: Colors.transparent,
       builder: (ctx) => Container(
         padding: EdgeInsets.only(
-          left: 24,
-          right: 24,
-          top: 20,
-          bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
+          left: 20,
+          right: 20,
+          top: 16,
+          bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
         ),
-        decoration: BoxDecoration(
-          color: Theme.of(context).brightness == Brightness.dark
-              ? AppColors.surfaceDark
-              : AppColors.surfaceLight,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        decoration: const BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -59,24 +57,19 @@ class _RecipeDetailScreenState extends ConsumerState<RecipeDetailScreen> {
           children: [
             Center(
               child: Container(
-                width: 40,
+                width: 36,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: AppColors.cardBorder,
+                  color: AppColors.divider,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
             ),
             const SizedBox(height: 16),
-            Row(
-              children: [
-                const Text('🪄 ', style: TextStyle(fontSize: 24)),
-                Text('AI Recipe Transformer', style: AppTypography.titleLarge),
-              ],
-            ),
-            const SizedBox(height: 8),
+            Text('Адаптация рецепта', style: AppTypography.titleLarge),
+            const SizedBox(height: 6),
             Text(
-              'Укажите, как адаптировать блюдо (например: «заменить сливки на кокосовые», «сделать кето», «без лактозы»)',
+              'Укажите пожелания (например: без лактозы, меньше калорий, заменить ингредиент)',
               style: AppTypography.bodySmall,
             ),
             const SizedBox(height: 16),
@@ -84,7 +77,7 @@ class _RecipeDetailScreenState extends ConsumerState<RecipeDetailScreen> {
               controller: controller,
               autofocus: true,
               decoration: const InputDecoration(
-                hintText: 'Ваши пожелания к рецепту...',
+                hintText: 'Пожелания к рецепту...',
               ),
             ),
             const SizedBox(height: 18),
@@ -109,13 +102,13 @@ class _RecipeDetailScreenState extends ConsumerState<RecipeDetailScreen> {
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
-                        content: Text('✨ Рецепт адаптирован под ваши остатки!'),
+                        content: Text('Рецепт успешно адаптирован под ваши остатки'),
                         backgroundColor: AppColors.primary,
                       ),
                     );
                   }
                 },
-                child: const Text('Адаптировать с Gemini AI ✨'),
+                child: const Text('Адаптировать рецепт'),
               ),
             ),
           ],
@@ -155,8 +148,8 @@ class _RecipeDetailScreenState extends ConsumerState<RecipeDetailScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(addedCount > 0
-            ? 'Добавлено $addedCount ингредиентов в список покупок'
-            : 'Все ингредиенты есть в вашем холодильнике! 🎉'),
+            ? 'Добавлено $addedCount ингредиентов в покупки'
+            : 'Все ингредиенты есть в наличии'),
         backgroundColor: AppColors.primary,
       ),
     );
@@ -180,7 +173,7 @@ class _RecipeDetailScreenState extends ConsumerState<RecipeDetailScreen> {
                 : Image.network(_currentRecipe.imageUrl, fit: BoxFit.cover),
           ),
 
-          // Vignette & Subtle Atmospheric Gradient
+          // Vignette & Clean Atmospheric Gradient (Reference 4)
           Positioned.fill(
             child: DecoratedBox(
               decoration: BoxDecoration(
@@ -204,7 +197,7 @@ class _RecipeDetailScreenState extends ConsumerState<RecipeDetailScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                // Top App Bar Icons
+                // Top Action Bar
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   child: Row(
@@ -218,7 +211,7 @@ class _RecipeDetailScreenState extends ConsumerState<RecipeDetailScreen> {
                         icon: _currentRecipe.isFavorite
                             ? Icons.favorite_rounded
                             : Icons.favorite_border_rounded,
-                        color: _currentRecipe.isFavorite ? AppColors.urgentExpiring : Colors.white,
+                        color: _currentRecipe.isFavorite ? AppColors.statusUrgent : Colors.white,
                         onTap: () {
                           HapticFeedback.lightImpact();
                           ref.read(recipesProvider.notifier).toggleFavorite(_currentRecipe.id);
@@ -279,7 +272,6 @@ class _RecipeDetailScreenState extends ConsumerState<RecipeDetailScreen> {
                               decoration: BoxDecoration(
                                 color: Colors.white.withValues(alpha: 0.15),
                                 borderRadius: BorderRadius.circular(20),
-                                border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
                               ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
@@ -319,7 +311,7 @@ class _RecipeDetailScreenState extends ConsumerState<RecipeDetailScreen> {
                     decoration: BoxDecoration(
                       color: Colors.black.withValues(alpha: 0.65),
                       borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -333,9 +325,9 @@ class _RecipeDetailScreenState extends ConsumerState<RecipeDetailScreen> {
                             ),
                             GestureDetector(
                               onTap: _addMissingToGrocery,
-                              child: Text(
+                              child: const Text(
                                 '+ В список покупок',
-                                style: AppTypography.labelSmall.copyWith(color: AppColors.secondary),
+                                style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
                               ),
                             ),
                           ],
@@ -357,7 +349,7 @@ class _RecipeDetailScreenState extends ConsumerState<RecipeDetailScreen> {
                                   children: [
                                     Icon(
                                       isAvailable ? Icons.check_circle_rounded : Icons.circle_outlined,
-                                      color: isAvailable ? AppColors.freshGood : Colors.white38,
+                                      color: isAvailable ? Colors.white : Colors.white38,
                                       size: 14,
                                     ),
                                     const SizedBox(width: 8),
@@ -407,7 +399,6 @@ class _RecipeDetailScreenState extends ConsumerState<RecipeDetailScreen> {
                         decoration: BoxDecoration(
                           color: Colors.black.withValues(alpha: 0.45),
                           borderRadius: BorderRadius.circular(24),
-                          border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
@@ -415,14 +406,14 @@ class _RecipeDetailScreenState extends ConsumerState<RecipeDetailScreen> {
                             Container(
                               padding: const EdgeInsets.all(6),
                               decoration: const BoxDecoration(
-                                color: AppColors.secondary,
+                                color: Colors.white24,
                                 shape: BoxShape.circle,
                               ),
                               child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 16),
                             ),
                             const SizedBox(width: 10),
                             Text(
-                              'Смотреть ролик готовки • 15 сек',
+                              'Смотреть ролик • 15 сек',
                               style: AppTypography.labelSmall.copyWith(
                                 color: Colors.white,
                                 fontWeight: FontWeight.bold,
@@ -434,41 +425,41 @@ class _RecipeDetailScreenState extends ConsumerState<RecipeDetailScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 16),
 
                 // Bottom Frosted Bento Modifiers Row (Reference 4 style!)
                 SizedBox(
-                  height: 90,
+                  height: 84,
                   child: ListView(
                     scrollDirection: Axis.horizontal,
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     children: [
                       _buildFrostedModifierCard(
-                        title: 'AI Адаптация',
+                        title: 'Адаптация',
                         subtitle: 'Под остатки',
-                        icon: Icons.auto_awesome_rounded,
+                        icon: Icons.tune_rounded,
                         onTap: _showAiTransformerModal,
                       ),
                       _buildFrostedModifierCard(
                         title: 'Для семьи',
-                        subtitle: _currentRecipe.familySplitTip != null ? 'Split Mode' : 'Без специй',
-                        icon: Icons.family_restroom_rounded,
+                        subtitle: _currentRecipe.familySplitTip != null ? 'Split Mode' : 'Мягкий вкус',
+                        icon: Icons.group_outlined,
                         onTap: () {
                           if (_currentRecipe.familySplitTip != null) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('👶 ${_currentRecipe.familySplitTip!}')),
+                              SnackBar(content: Text(_currentRecipe.familySplitTip!)),
                             );
                           }
                         },
                       ),
                       _buildFrostedModifierCard(
                         title: 'Zero-Waste',
-                        subtitle: 'Спасаем еду',
-                        icon: Icons.eco_rounded,
+                        subtitle: 'Совет шефа',
+                        icon: Icons.eco_outlined,
                         onTap: () {
                           if (_currentRecipe.zeroWasteTip != null) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('🌱 ${_currentRecipe.zeroWasteTip!}')),
+                              SnackBar(content: Text(_currentRecipe.zeroWasteTip!)),
                             );
                           }
                         },
@@ -476,7 +467,7 @@ class _RecipeDetailScreenState extends ConsumerState<RecipeDetailScreen> {
                       _buildFrostedModifierCard(
                         title: 'Порции',
                         subtitle: '$_servings порц.',
-                        icon: Icons.people_outline_rounded,
+                        icon: Icons.restaurant_outlined,
                         onTap: () {
                           setState(() {
                             _servings = _servings == 1 ? 2 : (_servings == 2 ? 4 : 1);
@@ -486,9 +477,9 @@ class _RecipeDetailScreenState extends ConsumerState<RecipeDetailScreen> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 14),
 
-                // Bottom Floating Action Capsule Bar (Reference 4 style: volume/time on left, action on right)
+                // Bottom Floating Action Capsule Bar (Reference 4: volume/time on left, action on right)
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   child: Row(
@@ -499,12 +490,11 @@ class _RecipeDetailScreenState extends ConsumerState<RecipeDetailScreen> {
                         child: BackdropFilter(
                           filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
                           child: Container(
-                            height: 56,
+                            height: 54,
                             padding: const EdgeInsets.symmetric(horizontal: 18),
                             decoration: BoxDecoration(
                               color: Colors.white.withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(20),
-                              border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
                             ),
                             alignment: Alignment.center,
                             child: Text(
@@ -517,15 +507,16 @@ class _RecipeDetailScreenState extends ConsumerState<RecipeDetailScreen> {
                           ),
                         ),
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: 10),
 
                       // Start Hands-Free Cooking Capsule Button
                       Expanded(
                         child: SizedBox(
-                          height: 56,
+                          height: 54,
                           child: ElevatedButton(
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.primary,
+                              backgroundColor: Colors.white,
+                              foregroundColor: AppColors.primary,
                               elevation: 0,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(20),
@@ -543,12 +534,12 @@ class _RecipeDetailScreenState extends ConsumerState<RecipeDetailScreen> {
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                const Icon(Icons.restaurant_rounded, color: Colors.white, size: 20),
+                                const Icon(Icons.restaurant_outlined, color: AppColors.primary, size: 20),
                                 const SizedBox(width: 8),
                                 Text(
-                                  'Начать готовку 👨‍🍳',
+                                  'Начать готовку',
                                   style: AppTypography.labelLarge.copyWith(
-                                    color: Colors.white,
+                                    color: AppColors.primary,
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
                                   ),
@@ -561,7 +552,7 @@ class _RecipeDetailScreenState extends ConsumerState<RecipeDetailScreen> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 6),
               ],
             ),
           ),
@@ -585,7 +576,6 @@ class _RecipeDetailScreenState extends ConsumerState<RecipeDetailScreen> {
           decoration: BoxDecoration(
             color: Colors.black.withValues(alpha: 0.35),
             shape: BoxShape.circle,
-            border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
           ),
           child: IconButton(
             icon: Icon(icon, color: color, size: 20),
@@ -636,22 +626,21 @@ class _RecipeDetailScreenState extends ConsumerState<RecipeDetailScreen> {
         onTap();
       },
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(18),
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
           child: Container(
-            width: 96,
-            margin: const EdgeInsets.only(right: 10),
-            padding: const EdgeInsets.all(10),
+            width: 92,
+            margin: const EdgeInsets.only(right: 8),
+            padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
+              borderRadius: BorderRadius.circular(18),
             ),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(icon, color: Colors.white, size: 22),
+                Icon(icon, color: Colors.white, size: 20),
                 const SizedBox(height: 4),
                 Text(
                   title,

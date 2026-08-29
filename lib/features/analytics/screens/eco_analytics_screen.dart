@@ -10,130 +10,67 @@ class EcoAnalyticsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final stats = ref.watch(ecoSavingsProvider);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final badges = [
-      {'emoji': '🥑', 'title': 'Первый скан', 'desc': 'Оцифровано более 10 продуктов', 'unlocked': true},
-      {'emoji': '🔥', 'title': 'Спасатель свежести', 'desc': 'Приготовлено блюдо из срочных остатков', 'unlocked': true},
-      {'emoji': '🌿', 'title': 'Zero-Waste Стрик', 'desc': '12 дней без выброшенной еды', 'unlocked': true},
-      {'emoji': '👨‍🍳', 'title': 'Шеф Голоса', 'desc': 'Готовка в Hands-Free режиме', 'unlocked': true},
-      {'emoji': '💰', 'title': 'Эко-Инвестор', 'desc': 'Сэкономлено более 5 000 ₽', 'unlocked': false},
-      {'emoji': '🌍', 'title': 'Планетарный страж', 'desc': 'Спас рекордные 10 кг еды', 'unlocked': false},
+      {'title': 'Первый скан', 'desc': 'Оцифровано более 10 продуктов', 'unlocked': true, 'icon': Icons.qr_code_scanner_rounded},
+      {'title': 'Контроль свежести', 'desc': 'Приготовлено блюдо из срочных остатков', 'unlocked': true, 'icon': Icons.kitchen_rounded},
+      {'title': 'Zero-Waste Стрик', 'desc': '12 дней без выброшенной еды', 'unlocked': true, 'icon': Icons.eco_rounded},
+      {'title': 'Шеф-режим', 'desc': 'Готовка с голосовым таймером', 'unlocked': true, 'icon': Icons.timer_outlined},
+      {'title': 'Экономия', 'desc': 'Сэкономлено более 5 000 ₽', 'unlocked': false, 'icon': Icons.account_balance_wallet_outlined},
+      {'title': 'Эко-баланс', 'desc': 'Спас рекордные 10 кг еды', 'unlocked': false, 'icon': Icons.public_rounded},
     ];
 
     return Scaffold(
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: Text('Эко-импакт & Экономия', style: AppTypography.displayMedium),
+        title: Text('Аналитика & Экономия', style: AppTypography.displayMedium),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Level / Rank Card
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [AppColors.primaryDark, AppColors.primaryLight],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(24),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.primaryDark.withOpacity(0.3),
-                    blurRadius: 16,
-                    offset: const Offset(0, 6),
-                  ),
-                ],
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 64,
-                    height: 64,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
-                      shape: BoxShape.circle,
-                    ),
-                    alignment: Alignment.center,
-                    child: const Text('🏆', style: TextStyle(fontSize: 32)),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Уровень 4: Шеф Осознанности',
-                          style: AppTypography.titleMedium.copyWith(color: Colors.white),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Вы вошли в топ 5% самых экономных кулинаров этого месяца!',
-                          style: AppTypography.bodySmall.copyWith(
-                            color: Colors.white.withOpacity(0.85),
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
-
-            // Big 4 Metrics Grid
+            // Big 4 Metrics Grid (Clean White Cards)
             Row(
               children: [
                 _buildMetricTile(
-                  context: context,
-                  label: 'Сэкономлено денег',
+                  label: 'Сэкономлено',
                   value: '${stats.savedMoneyRub.round()} ₽',
                   sub: '~17 400 ₽ в год',
-                  icon: '💰',
-                  color: AppColors.savingsGold,
+                  icon: Icons.savings_outlined,
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 10),
                 _buildMetricTile(
-                  context: context,
                   label: 'Спасенная еда',
                   value: '${stats.savedFoodKg.toStringAsFixed(1)} кг',
                   sub: '${stats.recipesZeroWasted} блюд приготовлено',
-                  icon: '🥑',
-                  color: AppColors.ecoGreen,
+                  icon: Icons.eco_outlined,
                 ),
               ],
             ),
-            const SizedBox(width: 12, height: 12),
+            const SizedBox(height: 10),
             Row(
               children: [
                 _buildMetricTile(
-                  context: context,
-                  label: 'Ударный стрик',
-                  value: '${stats.streakDays} дней',
-                  sub: 'без отходов',
-                  icon: '🔥',
-                  color: AppColors.secondary,
+                  label: 'Стрик без отходов',
+                  value: '${stats.streakDays} дн.',
+                  sub: 'непрерывно',
+                  icon: Icons.repeat_rounded,
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 10),
                 _buildMetricTile(
-                  context: context,
                   label: 'Предотвращен CO2',
                   value: '${stats.co2SavedKg.toStringAsFixed(1)} кг',
                   sub: 'эквивалент 35 км авто',
-                  icon: '🌱',
-                  color: AppColors.freshGood,
+                  icon: Icons.cloud_done_outlined,
                 ),
               ],
             ),
-            const SizedBox(height: 28),
+            const SizedBox(height: 24),
 
-            // Badges Section
-            Text('Достижения & Бейджи', style: AppTypography.titleLarge),
-            const SizedBox(height: 14),
+            // Achievements Section
+            Text('Достижения', style: AppTypography.titleMedium),
+            const SizedBox(height: 12),
 
             GridView.builder(
               shrinkWrap: true,
@@ -141,22 +78,21 @@ class EcoAnalyticsScreen extends ConsumerWidget {
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 2,
                 childAspectRatio: 1.35,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
+                crossAxisSpacing: 10,
+                mainAxisSpacing: 10,
               ),
               itemCount: badges.length,
               itemBuilder: (context, index) {
                 final b = badges[index];
                 final isUnlocked = b['unlocked'] as bool;
+                final icon = b['icon'] as IconData;
 
                 return Container(
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
-                    borderRadius: BorderRadius.circular(18),
-                    border: Border.all(
-                      color: isUnlocked ? AppColors.primary.withOpacity(0.3) : (isDark ? AppColors.cardBorderDark : AppColors.cardBorder),
-                    ),
+                    color: AppColors.surface,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: AppColors.cardBorder),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -165,28 +101,25 @@ class EcoAnalyticsScreen extends ConsumerWidget {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(b['emoji'] as String, style: const TextStyle(fontSize: 26)),
+                          Icon(icon, size: 22, color: isUnlocked ? AppColors.primary : AppColors.textTertiary),
                           if (isUnlocked)
-                            const Icon(Icons.check_circle_rounded, color: AppColors.primary, size: 18)
+                            const Icon(Icons.check_circle_rounded, size: 16, color: AppColors.primary)
                           else
-                            const Icon(Icons.lock_outline_rounded, color: AppColors.textTertiaryLight, size: 18),
+                            const Icon(Icons.lock_outline_rounded, size: 16, color: AppColors.textTertiary),
                         ],
                       ),
                       const SizedBox(height: 8),
                       Text(
                         b['title'] as String,
                         style: AppTypography.titleSmall.copyWith(
-                          color: isUnlocked ? null : AppColors.textTertiaryLight,
+                          color: isUnlocked ? AppColors.textPrimary : AppColors.textTertiary,
                         ),
                         maxLines: 1,
                       ),
                       const SizedBox(height: 2),
                       Text(
                         b['desc'] as String,
-                        style: AppTypography.bodySmall.copyWith(
-                          fontSize: 10,
-                          color: isDark ? AppColors.textTertiaryDark : AppColors.textTertiaryLight,
-                        ),
+                        style: AppTypography.bodySmall,
                         maxLines: 2,
                       ),
                     ],
@@ -201,44 +134,34 @@ class EcoAnalyticsScreen extends ConsumerWidget {
   }
 
   Widget _buildMetricTile({
-    required BuildContext context,
     required String label,
     required String value,
     required String sub,
-    required String icon,
-    required Color color,
+    required IconData icon,
   }) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
     return Expanded(
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: isDark ? AppColors.cardBorderDark : AppColors.cardBorder),
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: AppColors.cardBorder),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(icon, style: const TextStyle(fontSize: 24)),
+            Icon(icon, size: 22, color: AppColors.textPrimary),
             const SizedBox(height: 10),
             Text(
               value,
-              style: AppTypography.titleLarge.copyWith(
-                fontWeight: FontWeight.w800,
-                color: color,
-              ),
+              style: AppTypography.numberMetric,
             ),
             const SizedBox(height: 2),
             Text(label, style: AppTypography.labelSmall),
             const SizedBox(height: 2),
             Text(
               sub,
-              style: AppTypography.bodySmall.copyWith(
-                fontSize: 10,
-                color: isDark ? AppColors.textTertiaryDark : AppColors.textTertiaryLight,
-              ),
+              style: AppTypography.bodySmall,
             ),
           ],
         ),

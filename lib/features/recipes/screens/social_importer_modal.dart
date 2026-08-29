@@ -49,7 +49,7 @@ class _SocialImporterModalState extends ConsumerState<SocialImporterModal> {
       }
     } catch (e) {
       setState(() {
-        _errorMessage = 'Не удалось распознать рецепт. Попробуйте другую ссылку.';
+        _errorMessage = 'Не удалось распознать рецепт. Проверьте ссылку.';
         _isLoading = false;
       });
     }
@@ -57,18 +57,16 @@ class _SocialImporterModalState extends ConsumerState<SocialImporterModal> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
     return Container(
       padding: EdgeInsets.only(
-        left: 24,
-        right: 24,
-        top: 20,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+        left: 20,
+        right: 20,
+        top: 16,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 20,
       ),
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+      decoration: const BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -76,35 +74,20 @@ class _SocialImporterModalState extends ConsumerState<SocialImporterModal> {
         children: [
           Center(
             child: Container(
-              width: 40,
+              width: 36,
               height: 4,
               decoration: BoxDecoration(
-                color: AppColors.cardBorder,
+                color: AppColors.divider,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
           ),
           const SizedBox(height: 16),
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: AppColors.secondary.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(Icons.auto_awesome_rounded, color: AppColors.secondary, size: 24),
-              ),
-              const SizedBox(width: 12),
-              Text('AI Импорт из соцсетей', style: AppTypography.titleLarge),
-            ],
-          ),
-          const SizedBox(height: 12),
+          Text('Импорт из видео', style: AppTypography.titleLarge),
+          const SizedBox(height: 6),
           Text(
-            'Вставьте ссылку на видео из Instagram Reels, TikTok, YouTube или страницу с рецептом. Sprout мгновенно расшифрует ингредиенты и тайминги.',
-            style: AppTypography.bodyMedium.copyWith(
-              color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight,
-            ),
+            'Вставьте ссылку на видео или страницу с рецептом. Сервис извлечет ингредиенты, шаги и тайминги.',
+            style: AppTypography.bodySmall,
           ),
           const SizedBox(height: 16),
 
@@ -112,9 +95,9 @@ class _SocialImporterModalState extends ConsumerState<SocialImporterModal> {
             controller: _urlController,
             decoration: InputDecoration(
               hintText: 'https://instagram.com/reel/... или tiktok.com/@...',
-              prefixIcon: const Icon(Icons.link_rounded, color: AppColors.primary),
+              prefixIcon: const Icon(Icons.link_rounded, size: 20, color: AppColors.textTertiary),
               suffixIcon: IconButton(
-                icon: const Icon(Icons.content_paste_rounded, size: 20),
+                icon: const Icon(Icons.content_paste_rounded, size: 18),
                 tooltip: 'Вставить из буфера',
                 onPressed: () async {
                   final data = await Clipboard.getData('text/plain');
@@ -128,14 +111,14 @@ class _SocialImporterModalState extends ConsumerState<SocialImporterModal> {
 
           if (_errorMessage != null) ...[
             const SizedBox(height: 10),
-            Text(_errorMessage!, style: const TextStyle(color: AppColors.urgentExpiring, fontSize: 13)),
+            Text(_errorMessage!, style: const TextStyle(color: AppColors.statusUrgent, fontSize: 12)),
           ],
 
           const SizedBox(height: 20),
 
           SizedBox(
             width: double.infinity,
-            height: 52,
+            height: 50,
             child: ElevatedButton(
               onPressed: _isLoading ? null : _import,
               child: _isLoading
@@ -143,15 +126,15 @@ class _SocialImporterModalState extends ConsumerState<SocialImporterModal> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         SizedBox(
-                          width: 20,
-                          height: 20,
+                          width: 18,
+                          height: 18,
                           child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                         ),
-                        SizedBox(width: 12),
-                        Text('ИИ расшифровывает видео...'),
+                        SizedBox(width: 10),
+                        Text('Распознавание...'),
                       ],
                     )
-                  : const Text('Расшифровать и добавить рецепт ✨'),
+                  : const Text('Импортировать рецепт'),
             ),
           ),
         ],

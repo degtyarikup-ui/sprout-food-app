@@ -14,24 +14,17 @@ class RecipesScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final scoredRecipes = ref.watch(scoredRecipesProvider);
     final selectedCategory = ref.watch(selectedRecipeCategoryProvider);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final categories = ['Все', 'Завтрак', 'Обед', 'Ужин', 'Перекус'];
 
     return Scaffold(
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: Text('Рецепты & База', style: AppTypography.displayMedium),
+        title: Text('Рецепты', style: AppTypography.displayMedium),
         actions: [
           IconButton(
-            icon: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: AppColors.secondary.withOpacity(0.15),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.auto_awesome_rounded, color: AppColors.secondary),
-            ),
-            tooltip: 'Импорт из соцсетей',
+            icon: const Icon(Icons.link_rounded, size: 22),
+            tooltip: 'Импорт из видео',
             onPressed: () {
               HapticFeedback.lightImpact();
               showModalBottomSheet(
@@ -42,77 +35,51 @@ class RecipesScreen extends ConsumerWidget {
               );
             },
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 8),
         ],
       ),
       body: CustomScrollView(
         slivers: [
-          // Social Video Importer Banner
+          // Category Pills Selector
           SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-              child: InkWell(
-                onTap: () {
-                  HapticFeedback.lightImpact();
-                  showModalBottomSheet(
-                    context: context,
-                    isScrollControlled: true,
-                    backgroundColor: Colors.transparent,
-                    builder: (context) => const SocialImporterModal(),
+            child: SizedBox(
+              height: 48,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                itemCount: categories.length,
+                itemBuilder: (context, index) {
+                  final cat = categories[index];
+                  final isSelected = selectedCategory == cat;
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: GestureDetector(
+                      onTap: () {
+                        HapticFeedback.selectionClick();
+                        ref.read(selectedRecipeCategoryProvider.notifier).state = cat;
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: isSelected ? AppColors.primary : AppColors.surface,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: isSelected ? AppColors.primary : AppColors.cardBorder,
+                          ),
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          cat,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                            color: isSelected ? AppColors.primaryForeground : AppColors.textPrimary,
+                          ),
+                        ),
+                      ),
+                    ),
                   );
                 },
-                borderRadius: BorderRadius.circular(20),
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF2C3E50), Color(0xFF4CA1AF)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFF2C3E50).withOpacity(0.3),
-                        blurRadius: 12,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(Icons.play_circle_fill_rounded, color: Colors.white, size: 28),
-                      ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'AI Social Video Importer',
-                              style: AppTypography.titleSmall.copyWith(color: Colors.white),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              'Вставьте ссылку из Reels / TikTok -> ИИ создаст рецепт',
-                              style: AppTypography.bodySmall.copyWith(
-                                color: Colors.white.withOpacity(0.85),
-                                fontSize: 11,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white, size: 14),
-                    ],
-                  ),
-                ),
               ),
             ),
           ),
@@ -120,52 +87,20 @@ class RecipesScreen extends ConsumerWidget {
           // Search Box
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: TextField(
                 onChanged: (val) => ref.read(searchQueryProvider.notifier).state = val,
                 decoration: const InputDecoration(
-                  hintText: 'Поиск рецептов, ингредиентов, тегов...',
-                  prefixIcon: Icon(Icons.search_rounded),
+                  hintText: 'Поиск блюд и ингредиентов...',
+                  prefixIcon: Icon(Icons.search_rounded, size: 20, color: AppColors.textTertiary),
                 ),
               ),
             ),
           ),
 
-          // Category Chips
-          SliverToBoxAdapter(
-            child: SizedBox(
-              height: 52,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                itemCount: categories.length,
-                itemBuilder: (context, index) {
-                  final cat = categories[index];
-                  final isSelected = selectedCategory == cat;
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: ChoiceChip(
-                      label: Text(cat),
-                      selected: isSelected,
-                      onSelected: (_) {
-                        HapticFeedback.selectionClick();
-                        ref.read(selectedRecipeCategoryProvider.notifier).state = cat;
-                      },
-                      selectedColor: AppColors.primary,
-                      labelStyle: TextStyle(
-                        color: isSelected ? Colors.white : (isDark ? Colors.white70 : AppColors.textPrimaryLight),
-                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-          ),
-
-          // Recipe Cards Grid/List
+          // Recipe Cards List (Food-First Editorial)
           SliverPadding(
-            padding: const EdgeInsets.fromLTRB(16, 10, 16, 80),
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 80),
             sliver: SliverList(
               delegate: SliverChildBuilderDelegate(
                 (context, index) {
@@ -183,40 +118,23 @@ class RecipesScreen extends ConsumerWidget {
 
   Widget _buildRecipeCard(BuildContext context, RecipeWithMatchScore item, WidgetRef ref) {
     final recipe = item.recipe;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final matchPercent = item.matchPercentage.round();
 
-    Color badgeBg;
-    Color badgeColor;
-    String badgeText;
-
+    String matchText;
     if (matchPercent == 100) {
-      badgeBg = const Color(0xFFEAF8EF);
-      badgeColor = AppColors.freshGood;
-      badgeText = '🎉 100% ингредиентов есть';
+      matchText = 'Все ингредиенты в наличии';
     } else if (matchPercent >= 60) {
-      badgeBg = const Color(0xFFFEF5E7);
-      badgeColor = AppColors.soonExpiring;
-      badgeText = 'Есть ${item.availableIngredients} из ${item.totalIngredients} продуктов';
+      matchText = 'Есть ${item.availableIngredients} из ${item.totalIngredients} продуктов';
     } else {
-      badgeBg = const Color(0xFFFDECEE);
-      badgeColor = AppColors.urgentExpiring;
-      badgeText = 'Не хватает ${item.missingIngredients.length} продуктов';
+      matchText = 'Не хватает ${item.missingIngredients.length} продуктов';
     }
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        color: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: isDark ? AppColors.cardBorderDark : AppColors.cardBorder),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.cardBorder),
       ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
@@ -236,7 +154,7 @@ class RecipesScreen extends ConsumerWidget {
             Stack(
               children: [
                 SizedBox(
-                  height: 190,
+                  height: 200,
                   width: double.infinity,
                   child: recipe.imageUrl.startsWith('assets/')
                       ? Image.asset(recipe.imageUrl, fit: BoxFit.cover)
@@ -244,67 +162,75 @@ class RecipesScreen extends ConsumerWidget {
                           recipe.imageUrl,
                           fit: BoxFit.cover,
                           errorBuilder: (context, error, stackTrace) => Container(
-                            color: AppColors.primary.withValues(alpha: 0.15),
-                            child: const Center(child: Text('🍲', style: TextStyle(fontSize: 40))),
+                            color: AppColors.surfaceMuted,
+                            child: const Center(
+                              child: Icon(Icons.restaurant_outlined, size: 36, color: AppColors.textTertiary),
+                            ),
                           ),
                         ),
                 ),
+                // Time & Calories Capsule on Image
                 Positioned(
                   top: 12,
                   left: 12,
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                     decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.65),
+                      color: Colors.black.withValues(alpha: 0.65),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Text(
                       '${recipe.totalTimeMinutes} мин • ${recipe.calories} ккал',
-                      style: AppTypography.labelSmall.copyWith(color: Colors.white),
+                      style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
                     ),
                   ),
                 ),
+                // Favorite Circle
                 Positioned(
                   top: 12,
                   right: 12,
-                  child: CircleAvatar(
-                    backgroundColor: Colors.black.withOpacity(0.6),
-                    radius: 18,
-                    child: IconButton(
-                      padding: EdgeInsets.zero,
-                      icon: Icon(
-                        recipe.isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-                        size: 20,
-                        color: recipe.isFavorite ? AppColors.urgentExpiring : Colors.white,
+                  child: GestureDetector(
+                    onTap: () {
+                      HapticFeedback.lightImpact();
+                      ref.read(recipesProvider.notifier).toggleFavorite(recipe.id);
+                    },
+                    child: Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.55),
+                        shape: BoxShape.circle,
                       ),
-                      onPressed: () {
-                        HapticFeedback.lightImpact();
-                        ref.read(recipesProvider.notifier).toggleFavorite(recipe.id);
-                      },
+                      child: Icon(
+                        recipe.isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                        size: 18,
+                        color: recipe.isFavorite ? AppColors.statusUrgent : Colors.white,
+                      ),
                     ),
                   ),
                 ),
               ],
             ),
 
-            // Content
+            // Card Text Content
             Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(14),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Match score badge
+                  // Match status pill
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
-                      color: badgeBg,
-                      borderRadius: BorderRadius.circular(8),
+                      color: matchPercent == 100 ? const Color(0xFFEAF8EF) : AppColors.surfaceMuted,
+                      borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
-                      badgeText,
-                      style: AppTypography.labelSmall.copyWith(
-                        color: badgeColor,
-                        fontWeight: FontWeight.w700,
+                      matchText,
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        color: matchPercent == 100 ? AppColors.statusFresh : AppColors.textSecondary,
                       ),
                     ),
                   ),
@@ -314,34 +240,9 @@ class RecipesScreen extends ConsumerWidget {
                   const SizedBox(height: 4),
                   Text(
                     recipe.description,
-                    style: AppTypography.bodySmall.copyWith(
-                      color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight,
-                    ),
+                    style: AppTypography.bodySmall,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Tags
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 4,
-                    children: recipe.tags.take(3).map((tag) {
-                      return Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: isDark ? AppColors.surfaceElevatedDark : AppColors.surfaceElevatedLight,
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          tag,
-                          style: AppTypography.labelSmall.copyWith(
-                            fontSize: 10,
-                            color: isDark ? AppColors.textTertiaryDark : AppColors.textSecondaryLight,
-                          ),
-                        ),
-                      );
-                    }).toList(),
                   ),
                 ],
               ),

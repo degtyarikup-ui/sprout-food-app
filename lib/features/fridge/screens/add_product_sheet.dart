@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
@@ -17,8 +18,8 @@ class _AddProductSheetState extends ConsumerState<AddProductSheet> {
   final _amountController = TextEditingController(text: '1');
   String _selectedUnit = 'шт';
   String _selectedCategory = 'Овощи и зелень';
+  int _shelfDays = 3;
   String _selectedEmoji = '🥑';
-  int _shelfLifeDays = 4;
 
   final List<String> _units = ['шт', 'г', 'кг', 'мл', 'л', 'уп'];
   final List<String> _categories = [
@@ -26,12 +27,11 @@ class _AddProductSheetState extends ConsumerState<AddProductSheet> {
     'Молочные продукты',
     'Мясо и птица',
     'Рыба и морепродукты',
-    'Бакалея',
     'Фрукты и ягоды',
-    'Соусы и специи',
+    'Бакалея',
   ];
 
-  final List<String> _emojis = ['🥑', '🍅', '🧀', '🥚', '🍗', '🐟', '🥛', '🥦', '🥖', '🍎', '🍄', '🥩'];
+  final List<String> _emojis = ['🥑', '🍅', '🥒', '🥩', '🍗', '🐟', '🥛', '🧀', '🥚', '🍞', '🍎', '🍋'];
 
   @override
   void dispose() {
@@ -44,38 +44,36 @@ class _AddProductSheetState extends ConsumerState<AddProductSheet> {
     final name = _nameController.text.trim();
     if (name.isEmpty) return;
 
-    final amount = double.tryParse(_amountController.text) ?? 1.0;
+    final amount = double.tryParse(_amountController.text.trim()) ?? 1.0;
     final now = DateTime.now();
 
-    final item = ProductItem(
+    final product = ProductItem(
       name: name,
       amount: amount,
       unit: _selectedUnit,
       category: _selectedCategory,
       addedDate: now,
-      expiryDate: now.add(Duration(days: _shelfLifeDays)),
+      expiryDate: now.add(Duration(days: _shelfDays)),
       emoji: _selectedEmoji,
-      estimatedPrice: 150.0,
     );
 
-    ref.read(fridgeProvider.notifier).addProduct(item);
+    ref.read(fridgeProvider.notifier).addProduct(product);
+    HapticFeedback.lightImpact();
     Navigator.pop(context);
   }
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
     return Container(
       padding: EdgeInsets.only(
-        left: 24,
-        right: 24,
-        top: 20,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+        left: 20,
+        right: 20,
+        top: 16,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 20,
       ),
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+      decoration: const BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: SingleChildScrollView(
         child: Column(
@@ -84,58 +82,16 @@ class _AddProductSheetState extends ConsumerState<AddProductSheet> {
           children: [
             Center(
               child: Container(
-                width: 40,
+                width: 36,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: AppColors.cardBorder,
+                  color: AppColors.divider,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
             ),
             const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('Добавить в холодильник', style: AppTypography.titleLarge),
-                IconButton(
-                  icon: const Icon(Icons.close_rounded),
-                  onPressed: () => Navigator.pop(context),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-
-            // Emoji selector
-            SizedBox(
-              height: 48,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                itemCount: _emojis.length,
-                itemBuilder: (context, index) {
-                  final e = _emojis[index];
-                  final isSelected = _selectedEmoji == e;
-                  return GestureDetector(
-                    onTap: () => setState(() => _selectedEmoji = e),
-                    child: Container(
-                      margin: const EdgeInsets.only(right: 8),
-                      padding: const EdgeInsets.symmetric(horizontal: 10),
-                      decoration: BoxDecoration(
-                        color: isSelected
-                            ? AppColors.primary.withOpacity(0.15)
-                            : (isDark ? AppColors.surfaceElevatedDark : AppColors.surfaceElevatedLight),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: isSelected ? AppColors.primary : Colors.transparent,
-                          width: 2,
-                        ),
-                      ),
-                      alignment: Alignment.center,
-                      child: Text(e, style: const TextStyle(fontSize: 22)),
-                    ),
-                  );
-                },
-              ),
-            ),
+            Text('Добавить продукт', style: AppTypography.titleLarge),
             const SizedBox(height: 16),
 
             // Product Name
@@ -143,11 +99,10 @@ class _AddProductSheetState extends ConsumerState<AddProductSheet> {
               controller: _nameController,
               autofocus: true,
               decoration: const InputDecoration(
-                labelText: 'Название продукта',
-                hintText: 'например, Спелые томаты',
+                hintText: 'Название (например: Томаты черри)',
               ),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 12),
 
             // Amount and Unit
             Row(
@@ -156,58 +111,104 @@ class _AddProductSheetState extends ConsumerState<AddProductSheet> {
                   flex: 2,
                   child: TextField(
                     controller: _amountController,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(labelText: 'Количество'),
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: const InputDecoration(hintText: 'Количество'),
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 8),
                 Expanded(
-                  flex: 2,
-                  child: DropdownButtonFormField<String>(
-                    value: _selectedUnit,
-                    decoration: const InputDecoration(labelText: 'Ед. изм.'),
-                    items: _units.map((u) => DropdownMenuItem(value: u, child: Text(u))).toList(),
-                    onChanged: (val) {
-                      if (val != null) setState(() => _selectedUnit = val);
-                    },
+                  flex: 1,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceMuted,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        value: _selectedUnit,
+                        isExpanded: true,
+                        items: _units.map((u) => DropdownMenuItem(value: u, child: Text(u))).toList(),
+                        onChanged: (val) => setState(() => _selectedUnit = val ?? 'шт'),
+                      ),
+                    ),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 12),
 
             // Category
-            DropdownButtonFormField<String>(
-              value: _selectedCategory,
-              decoration: const InputDecoration(labelText: 'Категория'),
-              items: _categories.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
-              onChanged: (val) {
-                if (val != null) setState(() => _selectedCategory = val);
-              },
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceMuted,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  value: _selectedCategory,
+                  isExpanded: true,
+                  items: _categories.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
+                  onChanged: (val) => setState(() => _selectedCategory = val ?? _categories[0]),
+                ),
+              ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 14),
 
-            // Shelf Life Slider
-            Text(
-              'Срок хранения: $_shelfLifeDays ${_shelfLifeDays == 1 ? 'день' : (_shelfLifeDays < 5 ? 'дня' : 'дней')}',
-              style: AppTypography.labelLarge,
+            // Shelf life slider
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Срок хранения', style: AppTypography.titleSmall),
+                Text('$_shelfDays дней', style: AppTypography.labelMedium),
+              ],
             ),
             Slider(
-              value: _shelfLifeDays.toDouble(),
+              value: _shelfDays.toDouble(),
               min: 1,
               max: 30,
               divisions: 29,
               activeColor: AppColors.primary,
-              onChanged: (val) => setState(() => _shelfLifeDays = val.round()),
+              inactiveColor: AppColors.surfaceMuted,
+              onChanged: (val) => setState(() => _shelfDays = val.round()),
             ),
-            const SizedBox(height: 16),
 
+            // Emoji Picker Row
+            SizedBox(
+              height: 40,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: _emojis.length,
+                separatorBuilder: (context, index) => const SizedBox(width: 6),
+                itemBuilder: (context, index) {
+                  final e = _emojis[index];
+                  final isSel = _selectedEmoji == e;
+                  return GestureDetector(
+                    onTap: () => setState(() => _selectedEmoji = e),
+                    child: Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: isSel ? AppColors.primary : AppColors.surfaceMuted,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(e, style: const TextStyle(fontSize: 20)),
+                    ),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // Submit Button
             SizedBox(
               width: double.infinity,
-              height: 52,
+              height: 50,
               child: ElevatedButton(
                 onPressed: _save,
-                child: const Text('Сохранить продукт'),
+                child: const Text('Сохранить'),
               ),
             ),
           ],

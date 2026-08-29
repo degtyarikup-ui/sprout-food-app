@@ -1,14 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../../core/services/gemini_ai_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
-import '../../analytics/providers/eco_savings_provider.dart';
 import '../../fridge/models/product_item.dart';
 import '../../fridge/providers/fridge_provider.dart';
-
-enum ScanMode { receipt, fridgeShelf }
 
 class AiMagicScanScreen extends ConsumerStatefulWidget {
   const AiMagicScanScreen({super.key});
@@ -17,340 +15,427 @@ class AiMagicScanScreen extends ConsumerStatefulWidget {
   ConsumerState<AiMagicScanScreen> createState() => _AiMagicScanScreenState();
 }
 
-class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen>
-    with SingleTickerProviderStateMixin {
-  ScanMode _mode = ScanMode.receipt;
-  bool _isScanning = false;
-  List<ProductItem>? _recognizedProducts;
-  final Set<String> _selectedIds = {};
-  late AnimationController _laserController;
+class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
+  int _selectedMode = 0; // 0 = Чек, 1 = Полка холодильника, 2 = Текст / Заметка
+  bool _isProcessing = false;
+  Uint8List? _pickedImageBytes;
+  final TextEditingController _textInputController = TextEditingController();
+  List<ProductItem> _recognizedItems = [];
+  final ImagePicker _picker = ImagePicker();
 
-  @override
-  void initState() {
-    super.initState();
-    _laserController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 2),
-    )..repeat(reverse: true);
+  Future<void> _pickImage(ImageSource source) async {
+    try {
+      final XFile? photo = await _picker.pickImage(
+        source: source,
+        maxWidth: 1600,
+        maxHeight: 1600,
+        imageQuality: 85,
+      );
+
+      if (photo == null) return;
+
+      final bytes = await photo.readAsBytes();
+      setState(() {
+        _pickedImageBytes = bytes;
+        _isProcessing = true;
+        _recognizedItems = [];
+      });
+
+      final result = await GeminiAIService.scanReceiptOrFridge(
+        imageBytes: bytes,
+        mimeType: 'image/jpeg',
+        isReceipt: _selectedMode == 0,
+      );
+
+      setState(() {
+        _isProcessing = false;
+        _recognizedItems = result;
+      });
+
+      HapticFeedback.mediumImpact();
+    } catch (e) {
+      setState(() => _isProcessing = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Ошибка сканирования: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _processText() async {
+    final text = _textInputController.text.trim();
+    if (text.isEmpty) return;
+
+    setState(() {
+      _isProcessing = true;
+      _recognizedItems = [];
+    });
+
+    final result = await GeminiAIService.scanReceiptOrFridge(
+      rawOcrText: text,
+      isReceipt: _selectedMode == 0,
+    );
+
+    setState(() {
+      _isProcessing = false;
+      _recognizedItems = result;
+    });
+
+    HapticFeedback.mediumImpact();
+  }
+
+  void _saveAllToFridge() {
+    if (_recognizedItems.isEmpty) return;
+
+    for (final item in _recognizedItems) {
+      ref.read(fridgeProvider.notifier).addProduct(item);
+    }
+
+    HapticFeedback.heavyImpact();
+    Navigator.pop(context);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Добавлено ${_recognizedItems.length} продуктов в Холодильник'),
+        backgroundColor: AppColors.primary,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  void _removeItem(int index) {
+    setState(() {
+      _recognizedItems.removeAt(index);
+    });
   }
 
   @override
   void dispose() {
-    _laserController.dispose();
+    _textInputController.dispose();
     super.dispose();
-  }
-
-  Future<void> _performScan() async {
-    HapticFeedback.mediumImpact();
-    setState(() {
-      _isScanning = true;
-      _recognizedProducts = null;
-    });
-
-    final results = await GeminiAIService.scanReceiptOrFridge(
-      rawOcrText: _mode == ScanMode.receipt
-          ? 'Чек Пятерочка: Томаты черри 250г 160р, Филе цыпленка 500г 280р, Сыр Фета 200г 220р, Шпинат свежий 100г 110р, Авокадо Хасс 2шт 240р'
-          : 'Фото открытого холодильника: упаковка томатов, куриное филе на полке, сыр фета, пучок шпината, авокадо',
-    );
-
-    setState(() {
-      _isScanning = false;
-      _recognizedProducts = results;
-      _selectedIds.addAll(results.map((r) => r.id));
-    });
-    HapticFeedback.heavyImpact();
-  }
-
-  void _saveRecognizedToFridge() {
-    if (_recognizedProducts == null) return;
-    final toAdd = _recognizedProducts!.where((p) => _selectedIds.contains(p.id)).toList();
-
-    ref.read(fridgeProvider.notifier).addMultipleProducts(toAdd);
-    ref.read(ecoSavingsProvider.notifier).recordProductScanned(toAdd.length);
-
-    HapticFeedback.mediumImpact();
-    Navigator.pop(context);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('🎉 Добавлено ${toAdd.length} продуктов в Холодильник!'),
-        backgroundColor: AppColors.primary,
-      ),
-    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
+        title: const Text('Сканер продуктов'),
         leading: IconButton(
-          icon: const Icon(Icons.close_rounded, color: Colors.white),
+          icon: const Icon(Icons.close_rounded),
           onPressed: () => Navigator.pop(context),
         ),
-        title: Text(
-          'AI Magic Scan ✨',
-          style: AppTypography.titleMedium.copyWith(color: Colors.white),
-        ),
+        actions: [
+          if (_recognizedItems.isNotEmpty)
+            TextButton(
+              onPressed: _saveAllToFridge,
+              child: Text(
+                'Сохранить (${_recognizedItems.length})',
+                style: AppTypography.labelMedium.copyWith(color: AppColors.primary),
+              ),
+            ),
+        ],
       ),
       body: SafeArea(
         child: Column(
           children: [
-            // Mode Segmented Switcher
-            Container(
-              margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-              padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.12),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: _buildModeTab(
-                      label: '🧾 Чек из магазина',
-                      isSelected: _mode == ScanMode.receipt,
-                      onTap: () => setState(() => _mode = ScanMode.receipt),
-                    ),
-                  ),
-                  Expanded(
-                    child: _buildModeTab(
-                      label: '🧊 Полки холодильника',
-                      isSelected: _mode == ScanMode.fridgeShelf,
-                      onTap: () => setState(() => _mode = ScanMode.fridgeShelf),
-                    ),
-                  ),
-                ],
+            // Mode Selector (Clean Monochromatic Pills)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceMuted,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Row(
+                  children: [
+                    _buildModeTab(0, 'Кассовый чек'),
+                    _buildModeTab(1, 'Полка холодильника'),
+                    _buildModeTab(2, 'Текст списка'),
+                  ],
+                ),
               ),
             ),
 
-            // Viewfinder Camera Frame or Recognized Checklist
             Expanded(
-              child: _recognizedProducts == null
-                  ? _buildCameraViewfinder()
-                  : _buildResultsChecklist(isDark),
-            ),
-
-            // Bottom Scan Controls
-            Container(
-              padding: const EdgeInsets.all(20),
-              color: Colors.black,
-              child: _recognizedProducts == null
-                  ? SizedBox(
-                      width: double.infinity,
-                      height: 56,
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.secondary,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+              child: ListView(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                children: [
+                  // Main Capture / Upload Area
+                  if (_selectedMode != 2) ...[
+                    GestureDetector(
+                      onTap: () => _pickImage(ImageSource.camera),
+                      child: Container(
+                        height: 180,
+                        decoration: BoxDecoration(
+                          color: AppColors.surface,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: AppColors.cardBorder),
                         ),
-                        onPressed: _isScanning ? null : _performScan,
-                        child: _isScanning
-                            ? const Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  SizedBox(
-                                    width: 22,
-                                    height: 22,
-                                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
-                                  ),
-                                  SizedBox(width: 12),
-                                  Text('Gemini Vision распознает...'),
-                                ],
+                        child: _pickedImageBytes != null
+                            ? ClipRRect(
+                                borderRadius: BorderRadius.circular(20),
+                                child: Stack(
+                                  fit: StackFit.expand,
+                                  children: [
+                                    Image.memory(_pickedImageBytes!, fit: BoxFit.cover),
+                                    Container(color: Colors.black26),
+                                    Center(
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                        decoration: BoxDecoration(
+                                          color: Colors.black.withValues(alpha: 0.6),
+                                          borderRadius: BorderRadius.circular(20),
+                                        ),
+                                        child: const Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(Icons.refresh_rounded, color: Colors.white, size: 16),
+                                            SizedBox(width: 6),
+                                            Text(
+                                              'Переснять фото',
+                                              style: TextStyle(color: Colors.white, fontSize: 13),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               )
-                            : Row(
+                            : Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  const Icon(Icons.camera_alt_rounded, color: Colors.white),
-                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.all(14),
+                                    decoration: const BoxDecoration(
+                                      color: AppColors.surfaceMuted,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(
+                                      Icons.camera_alt_outlined,
+                                      size: 28,
+                                      color: AppColors.textPrimary,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
                                   Text(
-                                    _mode == ScanMode.receipt ? 'Сканировать чек 📸' : 'Сделать фото полок 📸',
-                                    style: AppTypography.labelLarge.copyWith(color: Colors.white, fontSize: 16),
+                                    _selectedMode == 0
+                                        ? 'Сфотографировать чек'
+                                        : 'Сфотографировать полку',
+                                    style: AppTypography.titleMedium,
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Камера распознает наименования и сроки хранения',
+                                    style: AppTypography.bodySmall,
                                   ),
                                 ],
                               ),
                       ),
-                    )
-                  : SizedBox(
-                      width: double.infinity,
-                      height: 56,
-                      child: ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                    ),
+                    const SizedBox(height: 10),
+
+                    // Gallery button
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () => _pickImage(ImageSource.gallery),
+                            icon: const Icon(Icons.photo_library_outlined, size: 18),
+                            label: const Text('Выбрать из галереи'),
+                          ),
                         ),
-                        onPressed: _saveRecognizedToFridge,
-                        icon: const Icon(Icons.check_circle_rounded, color: Colors.white),
-                        label: Text(
-                          'Добавить ${_selectedIds.length} прод. в холодильник',
-                          style: AppTypography.labelLarge.copyWith(color: Colors.white, fontSize: 16),
+                      ],
+                    ),
+                  ] else ...[
+                    // Text / OCR Input
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: AppColors.surface,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: AppColors.cardBorder),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Вставьте список покупок или текст чека', style: AppTypography.titleSmall),
+                          const SizedBox(height: 8),
+                          TextField(
+                            controller: _textInputController,
+                            maxLines: 5,
+                            decoration: const InputDecoration(
+                              hintText: 'Томаты черри 250г\nКуриное филе 500г\nСыр Фета 200г',
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              onPressed: _processText,
+                              child: const Text('Распознать список'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+
+                  const SizedBox(height: 24),
+
+                  // Loading State
+                  if (_isProcessing) ...[
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 24),
+                      child: Center(
+                        child: Column(
+                          children: [
+                            CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+                            SizedBox(height: 14),
+                            Text('ИИ распознает продукты и сроки годности...'),
+                          ],
                         ),
                       ),
                     ),
+                  ],
+
+                  // Recognized Results Section
+                  if (!_isProcessing && _recognizedItems.isNotEmpty) ...[
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Распознанные продукты (${_recognizedItems.length})',
+                          style: AppTypography.titleMedium,
+                        ),
+                        Text(
+                          'Нажмите для удаления',
+                          style: AppTypography.bodySmall,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+
+                    ListView.separated(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: _recognizedItems.length,
+                      separatorBuilder: (context, index) => const SizedBox(height: 8),
+                      itemBuilder: (context, index) {
+                        final item = _recognizedItems[index];
+                        final days = item.daysUntilExpiry;
+
+                        return Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                          decoration: BoxDecoration(
+                            color: AppColors.surface,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: AppColors.cardBorder),
+                          ),
+                          child: Row(
+                            children: [
+                              Text(item.emoji, style: const TextStyle(fontSize: 24)),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(item.name, style: AppTypography.titleSmall),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      '${item.amount.toStringAsFixed(item.amount % 1 == 0 ? 0 : 1)} ${item.unit} • ${item.category}',
+                                      style: AppTypography.bodySmall,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: AppColors.surfaceMuted,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  days <= 2 ? '$days дня' : '$days дн.',
+                                  style: AppTypography.labelSmall.copyWith(
+                                    color: days <= 2 ? AppColors.statusUrgent : AppColors.textPrimary,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              IconButton(
+                                icon: const Icon(Icons.close_rounded, size: 18, color: AppColors.textTertiary),
+                                onPressed: () => _removeItem(index),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ],
+              ),
             ),
+
+            // Bottom Confirm Button
+            if (_recognizedItems.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: SizedBox(
+                  width: double.infinity,
+                  height: 52,
+                  child: ElevatedButton(
+                    onPressed: _saveAllToFridge,
+                    child: Text('Добавить в Холодильник (${_recognizedItems.length})'),
+                  ),
+                ),
+              ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildModeTab({
-    required String label,
-    required bool isSelected,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        decoration: BoxDecoration(
-          color: isSelected ? Colors.white : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
+  Widget _buildModeTab(int mode, String title) {
+    final isSelected = _selectedMode == mode;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {
+          HapticFeedback.selectionClick();
+          setState(() {
+            _selectedMode = mode;
+            _pickedImageBytes = null;
+            _recognizedItems = [];
+          });
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          decoration: BoxDecoration(
+            color: isSelected ? AppColors.surface : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.04),
+                      blurRadius: 4,
+                      offset: const Offset(0, 1),
+                    )
+                  ]
+                : null,
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            title,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+              color: isSelected ? AppColors.textPrimary : AppColors.textSecondary,
+            ),
+          ),
         ),
-        alignment: Alignment.center,
-        child: Text(
-          label,
-          style: AppTypography.labelSmall.copyWith(
-            color: isSelected ? Colors.black : Colors.white70,
-            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCameraViewfinder() {
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          // Background subtle simulated lens view
-          Container(
-            decoration: BoxDecoration(
-              color: const Color(0xFF1C2833),
-              borderRadius: BorderRadius.circular(28),
-              border: Border.all(color: Colors.white.withOpacity(0.2), width: 1.5),
-            ),
-            child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    _mode == ScanMode.receipt ? Icons.receipt_long_rounded : Icons.kitchen_rounded,
-                    size: 72,
-                    color: Colors.white.withOpacity(0.3),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    _mode == ScanMode.receipt
-                        ? 'Наведите камеру на чек'
-                        : 'Сфотографируйте полки холодильника',
-                    style: AppTypography.titleMedium.copyWith(color: Colors.white70),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'ИИ определит названия, вес и сроки хранения',
-                    style: AppTypography.bodySmall.copyWith(color: Colors.white38),
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          // Animated Laser Scanner Line when active
-          if (_isScanning)
-            AnimatedBuilder(
-              animation: _laserController,
-              builder: (context, child) {
-                return Positioned(
-                  top: 40 + (_laserController.value * 280),
-                  left: 20,
-                  right: 20,
-                  child: Container(
-                    height: 3,
-                    decoration: BoxDecoration(
-                      color: AppColors.secondary,
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.secondary.withOpacity(0.8),
-                          blurRadius: 12,
-                          spreadRadius: 2,
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildResultsChecklist(bool isDark) {
-    return Container(
-      margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
-        borderRadius: BorderRadius.circular(24),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text('Распознано ИИ (5 продуктов)', style: AppTypography.titleMedium),
-              TextButton(
-                onPressed: () {
-                  setState(() {
-                    if (_selectedIds.length == _recognizedProducts!.length) {
-                      _selectedIds.clear();
-                    } else {
-                      _selectedIds.addAll(_recognizedProducts!.map((p) => p.id));
-                    }
-                  });
-                },
-                child: Text(_selectedIds.length == _recognizedProducts!.length ? 'Снять все' : 'Выбрать все'),
-              ),
-            ],
-          ),
-          const Divider(),
-          Expanded(
-            child: ListView.builder(
-              itemCount: _recognizedProducts!.length,
-              itemBuilder: (context, index) {
-                final item = _recognizedProducts![index];
-                final isSelected = _selectedIds.contains(item.id);
-
-                return CheckboxListTile(
-                  value: isSelected,
-                  activeColor: AppColors.primary,
-                  onChanged: (val) {
-                    setState(() {
-                      if (val == true) {
-                        _selectedIds.add(item.id);
-                      } else {
-                        _selectedIds.remove(item.id);
-                      }
-                    });
-                  },
-                  secondary: Text(item.emoji, style: const TextStyle(fontSize: 24)),
-                  title: Text(item.name, style: AppTypography.titleSmall),
-                  subtitle: Text(
-                    '${item.amount.toStringAsFixed(0)} ${item.unit} • Срок: ${item.daysUntilExpiry} дн. • ~${item.estimatedPrice?.round()} ₽',
-                    style: AppTypography.bodySmall,
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
       ),
     );
   }

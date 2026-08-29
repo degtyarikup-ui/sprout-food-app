@@ -21,16 +21,14 @@ class GroceryScreen extends ConsumerWidget {
       backgroundColor: Colors.transparent,
       builder: (ctx) => Container(
         padding: EdgeInsets.only(
-          left: 24,
-          right: 24,
-          top: 20,
-          bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
+          left: 20,
+          right: 20,
+          top: 16,
+          bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
         ),
-        decoration: BoxDecoration(
-          color: Theme.of(context).brightness == Brightness.dark
-              ? AppColors.surfaceDark
-              : AppColors.surfaceLight,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        decoration: const BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -38,10 +36,10 @@ class GroceryScreen extends ConsumerWidget {
           children: [
             Center(
               child: Container(
-                width: 40,
+                width: 36,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: AppColors.cardBorder,
+                  color: AppColors.divider,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -52,7 +50,7 @@ class GroceryScreen extends ConsumerWidget {
             TextField(
               controller: nameController,
               autofocus: true,
-              decoration: const InputDecoration(labelText: 'Что купить?'),
+              decoration: const InputDecoration(hintText: 'Наименование'),
             ),
             const SizedBox(height: 12),
             Row(
@@ -61,20 +59,28 @@ class GroceryScreen extends ConsumerWidget {
                   child: TextField(
                     controller: amountController,
                     keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(labelText: 'Количество'),
+                    decoration: const InputDecoration(hintText: 'Кол-во'),
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 8),
                 Expanded(
-                  child: DropdownButtonFormField<String>(
-                    value: unit,
-                    decoration: const InputDecoration(labelText: 'Ед. изм.'),
-                    items: ['шт', 'г', 'кг', 'мл', 'л', 'уп']
-                        .map((u) => DropdownMenuItem(value: u, child: Text(u)))
-                        .toList(),
-                    onChanged: (val) {
-                      if (val != null) unit = val;
-                    },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceMuted,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        value: unit,
+                        items: ['шт', 'г', 'кг', 'мл', 'л', 'уп']
+                            .map((u) => DropdownMenuItem(value: u, child: Text(u)))
+                            .toList(),
+                        onChanged: (val) {
+                          if (val != null) unit = val;
+                        },
+                      ),
+                    ),
                   ),
                 ),
               ],
@@ -99,7 +105,7 @@ class GroceryScreen extends ConsumerWidget {
                       );
                   Navigator.pop(ctx);
                 },
-                child: const Text('Добавить в список'),
+                child: const Text('Сохранить'),
               ),
             ),
           ],
@@ -112,7 +118,6 @@ class GroceryScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final groupedItems = ref.watch(groupedGroceryProvider);
     final allItems = ref.watch(groceryProvider);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final checkedCount = allItems.where((i) => i.isChecked).length;
     final totalCount = allItems.length;
@@ -121,37 +126,35 @@ class GroceryScreen extends ConsumerWidget {
         .fold(0.0, (sum, i) => sum + (i.estimatedCost ?? 0));
 
     return Scaffold(
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Список покупок', style: AppTypography.displayMedium),
+            Text('Покупки', style: AppTypography.displayMedium),
             Text(
-              'Сгруппировано по отделам супермаркета',
-              style: AppTypography.bodySmall.copyWith(
-                color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight,
-              ),
+              'Куплено $checkedCount из $totalCount • ~${totalCost.round()} ₽',
+              style: AppTypography.bodySmall,
             ),
           ],
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.sync_rounded, color: AppColors.primary),
-            tooltip: 'Синхронизировать с меню недели',
+            icon: const Icon(Icons.sync_rounded, size: 22),
+            tooltip: 'Синхронизировать с планом',
             onPressed: () {
               HapticFeedback.mediumImpact();
               ref.read(groceryProvider.notifier).syncFromMealPlan();
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content: Text('✨ Список обновлен на основе недостающих продуктов!'),
+                  content: Text('Список синхронизирован с меню недели'),
                   backgroundColor: AppColors.primary,
                 ),
               );
             },
           ),
           IconButton(
-            icon: const Icon(Icons.add_circle_outline_rounded, color: AppColors.primary),
-            tooltip: 'Добавить вручную',
+            icon: const Icon(Icons.add_rounded, size: 24),
             onPressed: () => _showAddCustomItemDialog(context, ref),
           ),
           const SizedBox(width: 8),
@@ -159,92 +162,6 @@ class GroceryScreen extends ConsumerWidget {
       ),
       body: CustomScrollView(
         slivers: [
-          // Progress & Cost Summary Card
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: isDark ? AppColors.cardBorderDark : AppColors.cardBorder),
-                ),
-                child: Column(
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Куплено $checkedCount из $totalCount',
-                              style: AppTypography.titleSmall,
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              'Осталось купить на ~${totalCost.round()} ₽',
-                              style: AppTypography.bodySmall.copyWith(
-                                color: isDark ? AppColors.textTertiaryDark : AppColors.textTertiaryLight,
-                              ),
-                            ),
-                          ],
-                        ),
-                        if (checkedCount > 0)
-                          TextButton.icon(
-                            onPressed: () {
-                              ref.read(groceryProvider.notifier).clearChecked();
-                            },
-                            icon: const Icon(Icons.cleaning_services_rounded, size: 16),
-                            label: const Text('Очистить купленное', style: TextStyle(fontSize: 12)),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(6),
-                      child: LinearProgressIndicator(
-                        value: totalCount > 0 ? checkedCount / totalCount : 0,
-                        minHeight: 8,
-                        backgroundColor: AppColors.cardBorder,
-                        color: AppColors.primary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-
-          // Auto Move to Fridge Hint
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: AppColors.primaryContainer,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  children: [
-                    const Text('💡 ', style: TextStyle(fontSize: 16)),
-                    Expanded(
-                      child: Text(
-                        'При вычеркивании продукт автоматически попадает в «Мой Холодильник» со сроком годности.',
-                        style: AppTypography.bodySmall.copyWith(
-                          fontSize: 11,
-                          color: AppColors.primaryDark,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-
           // Department Grouped Sections
           if (allItems.isEmpty)
             SliverFillRemaining(
@@ -253,7 +170,7 @@ class GroceryScreen extends ConsumerWidget {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Text('🛒', style: TextStyle(fontSize: 48)),
+                    const Icon(Icons.shopping_bag_outlined, size: 48, color: AppColors.textTertiary),
                     const SizedBox(height: 12),
                     Text('Список покупок пуст', style: AppTypography.titleMedium),
                     const SizedBox(height: 4),
@@ -272,31 +189,27 @@ class GroceryScreen extends ConsumerWidget {
                     final items = groupedItems[department]!;
 
                     return Container(
-                      margin: const EdgeInsets.only(bottom: 16),
-                      padding: const EdgeInsets.all(16),
+                      margin: const EdgeInsets.only(bottom: 12),
+                      padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
-                        color: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: isDark ? AppColors.cardBorderDark : AppColors.cardBorder),
+                        color: AppColors.surface,
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(color: AppColors.cardBorder),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Row(
                             children: [
-                              Text(_getDepartmentEmoji(department), style: const TextStyle(fontSize: 18)),
-                              const SizedBox(width: 8),
                               Text(department, style: AppTypography.titleSmall),
                               const Spacer(),
                               Text(
-                                '${items.length} шт',
-                                style: AppTypography.labelSmall.copyWith(
-                                  color: isDark ? AppColors.textTertiaryDark : AppColors.textTertiaryLight,
-                                ),
+                                '${items.length} поз.',
+                                style: AppTypography.labelSmall,
                               ),
                             ],
                           ),
-                          const Divider(height: 20),
+                          const Divider(height: 16),
                           ...items.map((item) {
                             return Dismissible(
                               key: Key(item.id),
@@ -305,7 +218,7 @@ class GroceryScreen extends ConsumerWidget {
                                 alignment: Alignment.centerRight,
                                 padding: const EdgeInsets.only(right: 16),
                                 decoration: BoxDecoration(
-                                  color: AppColors.urgentExpiring,
+                                  color: AppColors.statusUrgent,
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: const Icon(Icons.delete_outline_rounded, color: Colors.white),
@@ -320,13 +233,13 @@ class GroceryScreen extends ConsumerWidget {
                                     Checkbox(
                                       value: item.isChecked,
                                       activeColor: AppColors.primary,
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
                                       onChanged: (_) {
                                         HapticFeedback.lightImpact();
                                         ref.read(groceryProvider.notifier).toggleItem(item.id);
                                       },
                                     ),
-                                    const SizedBox(width: 6),
+                                    const SizedBox(width: 4),
                                     Expanded(
                                       child: Column(
                                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -335,18 +248,13 @@ class GroceryScreen extends ConsumerWidget {
                                             item.name,
                                             style: AppTypography.bodyMedium.copyWith(
                                               decoration: item.isChecked ? TextDecoration.lineThrough : null,
-                                              color: item.isChecked
-                                                  ? (isDark ? AppColors.textTertiaryDark : AppColors.textTertiaryLight)
-                                                  : null,
+                                              color: item.isChecked ? AppColors.textTertiary : AppColors.textPrimary,
                                             ),
                                           ),
                                           if (item.recipeOriginTitle != null) ...[
                                             Text(
                                               'для: ${item.recipeOriginTitle}',
-                                              style: AppTypography.bodySmall.copyWith(
-                                                fontSize: 11,
-                                                color: isDark ? AppColors.textTertiaryDark : AppColors.textTertiaryLight,
-                                              ),
+                                              style: AppTypography.bodySmall.copyWith(fontSize: 10),
                                             ),
                                           ],
                                         ],
@@ -355,7 +263,7 @@ class GroceryScreen extends ConsumerWidget {
                                     Text(
                                       '${item.amount.toStringAsFixed(item.amount % 1 == 0 ? 0 : 1)} ${item.unit}',
                                       style: AppTypography.labelSmall.copyWith(
-                                        color: AppColors.primary,
+                                        color: AppColors.textPrimary,
                                         fontWeight: FontWeight.w600,
                                       ),
                                     ),
@@ -375,13 +283,5 @@ class GroceryScreen extends ConsumerWidget {
         ],
       ),
     );
-  }
-
-  String _getDepartmentEmoji(String department) {
-    if (department.contains('Овощи')) return '🥦';
-    if (department.contains('Молочные')) return '🧀';
-    if (department.contains('Мясо')) return '🥩';
-    if (department.contains('Бакалея')) return '🌾';
-    return '🛒';
   }
 }
