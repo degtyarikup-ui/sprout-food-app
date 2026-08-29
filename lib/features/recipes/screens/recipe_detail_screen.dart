@@ -311,7 +311,7 @@ class _RecipeDetailScreenState extends ConsumerState<RecipeDetailScreen> {
                     decoration: BoxDecoration(
                       color: Colors.black.withValues(alpha: 0.65),
                       borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                      // Zero borders as per design system rule
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -338,18 +338,17 @@ class _RecipeDetailScreenState extends ConsumerState<RecipeDetailScreen> {
                             children: _currentRecipe.ingredients.map((ing) {
                               final ingName = ing.name.toLowerCase();
                               final isAvailable = fridgeNames.any((f) {
-                                final words = ingName.split(' ');
-                                return words.any((w) => w.length > 3 && f.contains(w));
+                                return ingName.contains(f) || f.contains(ingName);
                               });
                               final scaled = ing.amount * servingMultiplier;
 
                               return Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 3),
+                                padding: const EdgeInsets.symmetric(vertical: 4),
                                 child: Row(
                                   children: [
                                     Icon(
-                                      isAvailable ? Icons.check_circle_rounded : Icons.circle_outlined,
-                                      color: isAvailable ? Colors.white : Colors.white38,
+                                      isAvailable ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
+                                      color: isAvailable ? AppColors.primary : Colors.white38,
                                       size: 14,
                                     ),
                                     const SizedBox(width: 8),
@@ -377,55 +376,55 @@ class _RecipeDetailScreenState extends ConsumerState<RecipeDetailScreen> {
                   ),
                 ],
 
-                const Spacer(),
-
-                // Watch Short Cooking Reel Button (Center trigger)
-                GestureDetector(
-                  onTap: () {
-                    HapticFeedback.mediumImpact();
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => ShortCookingReelModal(recipe: _currentRecipe),
-                      ),
-                    );
-                  },
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(24),
-                    child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.45),
-                          borderRadius: BorderRadius.circular(24),
+                // Watch Short Cooking Reel Button (ONLY if recipe actually has a videoUrl)
+                if (_currentRecipe.videoUrl != null && _currentRecipe.videoUrl!.trim().isNotEmpty) ...[
+                  GestureDetector(
+                    onTap: () {
+                      HapticFeedback.mediumImpact();
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => ShortCookingReelModal(recipe: _currentRecipe),
                         ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(6),
-                              decoration: const BoxDecoration(
-                                color: Colors.white24,
-                                shape: BoxShape.circle,
+                      );
+                    },
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(24),
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.45),
+                            borderRadius: BorderRadius.circular(24),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: const BoxDecoration(
+                                  color: Colors.white24,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 16),
                               ),
-                              child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 16),
-                            ),
-                            const SizedBox(width: 10),
-                            Text(
-                              'Смотреть ролик • 15 сек',
-                              style: AppTypography.labelSmall.copyWith(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
+                              const SizedBox(width: 10),
+                              Text(
+                                'Смотреть ролик',
+                                style: AppTypography.labelSmall.copyWith(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 16),
+                  const SizedBox(height: 16),
+                ],
 
                 // Bottom Frosted Bento Modifiers Row (Reference 4 style!)
                 SizedBox(
