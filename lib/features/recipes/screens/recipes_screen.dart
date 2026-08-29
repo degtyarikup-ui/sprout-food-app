@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -98,14 +99,14 @@ class RecipesScreen extends ConsumerWidget {
             ),
           ),
 
-          // Recipe Cards List (Food-First Editorial)
+          // Full-Bleed Food Photo Cards List
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 80),
             sliver: SliverList(
               delegate: SliverChildBuilderDelegate(
                 (context, index) {
                   final item = scoredRecipes[index];
-                  return _buildRecipeCard(context, item, ref);
+                  return _buildFullBleedRecipeCard(context, item, ref);
                 },
                 childCount: scoredRecipes.length,
               ),
@@ -116,28 +117,28 @@ class RecipesScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildRecipeCard(BuildContext context, RecipeWithMatchScore item, WidgetRef ref) {
+  Widget _buildFullBleedRecipeCard(BuildContext context, RecipeWithMatchScore item, WidgetRef ref) {
     final recipe = item.recipe;
     final matchPercent = item.matchPercentage.round();
 
     String matchText;
     if (matchPercent == 100) {
-      matchText = 'Все ингредиенты в наличии';
+      matchText = 'Все ингредиенты есть';
     } else if (matchPercent >= 60) {
-      matchText = 'Есть ${item.availableIngredients} из ${item.totalIngredients} продуктов';
+      matchText = 'Есть ${item.availableIngredients} из ${item.totalIngredients}';
     } else {
       matchText = 'Не хватает ${item.missingIngredients.length} продуктов';
     }
 
     return Container(
+      height: 250,
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.cardBorder),
+        color: AppColors.surfaceDark,
+        borderRadius: BorderRadius.circular(24),
       ),
       clipBehavior: Clip.antiAlias,
-      child: InkWell(
+      child: GestureDetector(
         onTap: () {
           HapticFeedback.lightImpact();
           Navigator.push(
@@ -147,104 +148,162 @@ class RecipesScreen extends ConsumerWidget {
             ),
           );
         },
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Stack(
+          fit: StackFit.expand,
           children: [
-            // Image Stack with Badges
-            Stack(
-              children: [
-                SizedBox(
-                  height: 200,
-                  width: double.infinity,
-                  child: recipe.imageUrl.startsWith('assets/')
-                      ? Image.asset(recipe.imageUrl, fit: BoxFit.cover)
-                      : Image.network(
-                          recipe.imageUrl,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) => Container(
-                            color: AppColors.surfaceMuted,
-                            child: const Center(
-                              child: Icon(Icons.restaurant_outlined, size: 36, color: AppColors.textTertiary),
-                            ),
-                          ),
-                        ),
-                ),
-                // Time & Calories Capsule on Image
-                Positioned(
-                  top: 12,
-                  left: 12,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.65),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Text(
-                      '${recipe.totalTimeMinutes} мин • ${recipe.calories} ккал',
-                      style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
-                    ),
-                  ),
-                ),
-                // Favorite Circle
-                Positioned(
-                  top: 12,
-                  right: 12,
-                  child: GestureDetector(
-                    onTap: () {
-                      HapticFeedback.lightImpact();
-                      ref.read(recipesProvider.notifier).toggleFavorite(recipe.id);
-                    },
-                    child: Container(
-                      width: 36,
-                      height: 36,
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.55),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        recipe.isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-                        size: 18,
-                        color: recipe.isFavorite ? AppColors.statusUrgent : Colors.white,
+            // Full-Bleed High Quality Food Photography
+            recipe.imageUrl.startsWith('assets/')
+                ? Image.asset(recipe.imageUrl, fit: BoxFit.cover)
+                : Image.network(
+                    recipe.imageUrl,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => Container(
+                      color: AppColors.surfaceMuted,
+                      child: const Center(
+                        child: Icon(Icons.restaurant_outlined, size: 36, color: AppColors.textTertiary),
                       ),
                     ),
                   ),
+
+            // Subtle Vignette Gradient
+            Positioned.fill(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.black.withValues(alpha: 0.35),
+                      Colors.transparent,
+                      Colors.black.withValues(alpha: 0.85),
+                    ],
+                    stops: const [0.0, 0.45, 1.0],
+                  ),
                 ),
-              ],
+              ),
             ),
 
-            // Card Text Content
-            Padding(
-              padding: const EdgeInsets.all(14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+            // Top Badges
+            Positioned(
+              top: 14,
+              left: 14,
+              right: 14,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  // Match status pill
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: matchPercent == 100 ? const Color(0xFFEAF8EF) : AppColors.surfaceMuted,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(
-                      matchText,
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                        color: matchPercent == 100 ? AppColors.statusFresh : AppColors.textSecondary,
+                  // Time & Calories Frosted Capsule
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(20),
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.4),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          '${recipe.totalTimeMinutes} мин • ${recipe.calories} ккал',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                       ),
                     ),
                   ),
-                  const SizedBox(height: 8),
 
-                  Text(recipe.title, style: AppTypography.titleMedium),
-                  const SizedBox(height: 4),
-                  Text(
-                    recipe.description,
-                    style: AppTypography.bodySmall,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
+                  // Favorite Frosted Circle
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(20),
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                      child: GestureDetector(
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          ref.read(recipesProvider.notifier).toggleFavorite(recipe.id);
+                        },
+                        child: Container(
+                          width: 38,
+                          height: 38,
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.4),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            recipe.isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                            size: 18,
+                            color: recipe.isFavorite ? AppColors.statusUrgent : Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
                 ],
+              ),
+            ),
+
+            // Bottom Frosted Title & Match Bar (Clean Visual Editorial)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: ClipRRect(
+                borderRadius: const BorderRadius.vertical(bottom: Radius.circular(24)),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+                  child: Container(
+                    padding: const EdgeInsets.fromLTRB(18, 14, 18, 16),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.35),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          recipe.title,
+                          style: AppTypography.titleLarge.copyWith(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.w700,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 6),
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: matchPercent == 100
+                                    ? Colors.white.withValues(alpha: 0.2)
+                                    : Colors.white.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                matchText,
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                            const Spacer(),
+                            const Icon(
+                              Icons.arrow_forward_rounded,
+                              size: 16,
+                              color: Colors.white70,
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ),
             ),
           ],

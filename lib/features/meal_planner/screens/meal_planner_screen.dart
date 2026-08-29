@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -172,11 +173,11 @@ class MealPlannerScreen extends ConsumerWidget {
             ),
           ),
 
-          // Next Meal Hero Card (if has next meal)
+          // Next Meal Full-Bleed Hero Card
           if (nextUncompletedSlot.recipe != null)
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
                 child: _buildHeroNextMealCard(context, nextUncompletedSlot, currentDay.date, ref),
               ),
             ),
@@ -208,106 +209,147 @@ class MealPlannerScreen extends ConsumerWidget {
     final recipe = slot.recipe!;
 
     return Container(
+      height: 240,
       decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.cardBorder),
+        color: AppColors.surfaceDark,
+        borderRadius: BorderRadius.circular(24),
       ),
       clipBehavior: Clip.antiAlias,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Full-bleed Photo Hero
-          Stack(
-            children: [
-              SizedBox(
-                height: 170,
-                width: double.infinity,
-                child: recipe.imageUrl.startsWith('assets/')
-                    ? Image.asset(recipe.imageUrl, fit: BoxFit.cover)
-                    : Image.network(recipe.imageUrl, fit: BoxFit.cover),
-              ),
-              Positioned(
-                top: 12,
-                left: 12,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.65),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text(
-                    'Следующий: ${slot.type.label}',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(recipe.title, style: AppTypography.titleLarge),
-                const SizedBox(height: 4),
-                Text(
-                  '${recipe.totalTimeMinutes} мин • ${recipe.calories} ккал',
-                  style: AppTypography.bodyMedium,
-                ),
-                const SizedBox(height: 14),
-
-                // Action Buttons (Clean High Contrast)
-                Row(
-                  children: [
-                    Expanded(
-                      flex: 3,
-                      child: SizedBox(
-                        height: 46,
-                        child: ElevatedButton(
-                          onPressed: () {
-                            HapticFeedback.mediumImpact();
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => SmartCookingScreen(recipe: recipe),
-                              ),
-                            );
-                          },
-                          child: const Text('Начать готовку'),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      flex: 2,
-                      child: SizedBox(
-                        height: 46,
-                        child: OutlinedButton(
-                          onPressed: () {
-                            HapticFeedback.lightImpact();
-                            showModalBottomSheet(
-                              context: context,
-                              isScrollControlled: true,
-                              backgroundColor: Colors.transparent,
-                              builder: (context) => AiSwapModal(dayDate: dayDate, slot: slot),
-                            );
-                          },
-                          child: const Text('Заменить'),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+      child: GestureDetector(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => RecipeDetailScreen(recipe: recipe),
             ),
-          ),
-        ],
+          );
+        },
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            // Full-bleed Photo Hero
+            recipe.imageUrl.startsWith('assets/')
+                ? Image.asset(recipe.imageUrl, fit: BoxFit.cover)
+                : Image.network(recipe.imageUrl, fit: BoxFit.cover),
+
+            // Gradient
+            Positioned.fill(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.black.withValues(alpha: 0.35),
+                      Colors.transparent,
+                      Colors.black.withValues(alpha: 0.85),
+                    ],
+                    stops: const [0.0, 0.45, 1.0],
+                  ),
+                ),
+              ),
+            ),
+
+            // Next Meal Pill on Top
+            Positioned(
+              top: 14,
+              left: 14,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(20),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.4),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      'Следующий: ${slot.type.label}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+            // Bottom Frosted Panel with Title and Start Button
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: ClipRRect(
+                borderRadius: const BorderRadius.vertical(bottom: Radius.circular(24)),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+                  child: Container(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.35),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                recipe.title,
+                                style: AppTypography.titleMedium.copyWith(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                '${recipe.totalTimeMinutes} мин • ${recipe.calories} ккал',
+                                style: const TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        SizedBox(
+                          height: 38,
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              foregroundColor: AppColors.primary,
+                              padding: const EdgeInsets.symmetric(horizontal: 16),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            onPressed: () {
+                              HapticFeedback.mediumImpact();
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => SmartCookingScreen(recipe: recipe),
+                                ),
+                              );
+                            },
+                            child: const Text('Готовить'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -325,7 +367,7 @@ class MealPlannerScreen extends ConsumerWidget {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(color: AppColors.cardBorder),
       ),
       child: Row(
@@ -344,18 +386,18 @@ class MealPlannerScreen extends ConsumerWidget {
           // Recipe Thumbnail
           if (recipe != null)
             ClipRRect(
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(12),
               child: recipe.imageUrl.startsWith('assets/')
                   ? Image.asset(
                       recipe.imageUrl,
-                      width: 50,
-                      height: 50,
+                      width: 52,
+                      height: 52,
                       fit: BoxFit.cover,
                     )
                   : Image.network(
                       recipe.imageUrl,
-                      width: 50,
-                      height: 50,
+                      width: 52,
+                      height: 52,
                       fit: BoxFit.cover,
                     ),
             ),
