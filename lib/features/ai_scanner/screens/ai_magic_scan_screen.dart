@@ -18,10 +18,18 @@ class AiMagicScanScreen extends ConsumerStatefulWidget {
 class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
   int _selectedMode = 0; // 0 = Чек, 1 = Полка холодильника, 2 = Текст / Заметка
   bool _isProcessing = false;
+  bool _hasScanned = false;
+  String? _errorMessage;
   Uint8List? _pickedImageBytes;
   final TextEditingController _textInputController = TextEditingController();
   List<ProductItem> _recognizedItems = [];
   final ImagePicker _picker = ImagePicker();
+
+  @override
+  void initState() {
+    super.initState();
+    GeminiAIService.loadSavedApiKey();
+  }
 
   Future<void> _pickImage(ImageSource source) async {
     try {
@@ -38,6 +46,8 @@ class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
       setState(() {
         _pickedImageBytes = bytes;
         _isProcessing = true;
+        _hasScanned = false;
+        _errorMessage = null;
         _recognizedItems = [];
       });
 
@@ -49,15 +59,24 @@ class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
 
       setState(() {
         _isProcessing = false;
+        _hasScanned = true;
         _recognizedItems = result;
       });
 
       HapticFeedback.mediumImpact();
     } catch (e) {
-      setState(() => _isProcessing = false);
+      setState(() {
+        _isProcessing = false;
+        _hasScanned = true;
+        _errorMessage = e.toString().replaceAll('Exception: ', '');
+      });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Ошибка сканирования: $e')),
+          SnackBar(
+            content: Text(_errorMessage ?? 'Ошибка сканирования'),
+            backgroundColor: AppColors.statusUrgent,
+            duration: const Duration(seconds: 4),
+          ),
         );
       }
     }
@@ -69,20 +88,31 @@ class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
 
     setState(() {
       _isProcessing = true;
+      _hasScanned = false;
+      _errorMessage = null;
       _recognizedItems = [];
     });
 
-    final result = await GeminiAIService.scanReceiptOrFridge(
-      rawOcrText: text,
-      isReceipt: _selectedMode == 0,
-    );
+    try {
+      final result = await GeminiAIService.scanReceiptOrFridge(
+        rawOcrText: text,
+        isReceipt: _selectedMode == 0,
+      );
 
-    setState(() {
-      _isProcessing = false;
-      _recognizedItems = result;
-    });
+      setState(() {
+        _isProcessing = false;
+        _hasScanned = true;
+        _recognizedItems = result;
+      });
 
-    HapticFeedback.mediumImpact();
+      HapticFeedback.mediumImpact();
+    } catch (e) {
+      setState(() {
+        _isProcessing = false;
+        _hasScanned = true;
+        _errorMessage = e.toString().replaceAll('Exception: ', '');
+      });
+    }
   }
 
   void _saveAllToFridge() {
@@ -109,6 +139,74 @@ class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
     });
   }
 
+  void _showApiKeyDialog() {
+    final keyController = TextEditingController(text: GeminiAIService.apiKey);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        padding: EdgeInsets.only(
+          left: 20,
+          right: 20,
+          top: 16,
+          bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
+        ),
+        decoration: const BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppColors.divider,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text('Настройка Gemini API', style: AppTypography.titleLarge),
+            const SizedBox(height: 6),
+            Text(
+              'Для реального сканирования нужен ключ из Google AI Studio (начинается на AIzaSy...): aistudio.google.com/app/apikey',
+              style: AppTypography.bodySmall,
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: keyController,
+              decoration: const InputDecoration(
+                hintText: 'AIzaSy...',
+                prefixIcon: Icon(Icons.key_rounded, size: 20),
+              ),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: ElevatedButton(
+                onPressed: () async {
+                  final k = keyController.text.trim();
+                  if (k.isNotEmpty) {
+                    await GeminiAIService.setApiKey(k);
+                  }
+                  if (ctx.mounted) Navigator.pop(ctx);
+                },
+                child: const Text('Сохранить ключ'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   void dispose() {
     _textInputController.dispose();
@@ -126,6 +224,11 @@ class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.key_outlined, size: 20),
+            tooltip: 'Ключ API',
+            onPressed: _showApiKeyDialog,
+          ),
           if (_recognizedItems.isNotEmpty)
             TextButton(
               onPressed: _saveAllToFridge,
@@ -228,7 +331,7 @@ class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
-                                    'Камера распознает наименования и сроки хранения',
+                                    'Gemini Vision распознает продукты и сроки годности',
                                     style: AppTypography.bodySmall,
                                   ),
                                 ],
@@ -283,7 +386,31 @@ class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
                     ),
                   ],
 
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 20),
+
+                  // Error Banner if API error occurred
+                  if (_errorMessage != null) ...[
+                    Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFDECEE),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.error_outline_rounded, color: AppColors.statusUrgent, size: 20),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              _errorMessage!,
+                              style: const TextStyle(color: AppColors.statusUrgent, fontSize: 12),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
 
                   // Loading State
                   if (_isProcessing) ...[
@@ -294,9 +421,34 @@ class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
                           children: [
                             CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
                             SizedBox(height: 14),
-                            Text('ИИ распознает продукты и сроки годности...'),
+                            Text('Gemini 1.5 Flash анализирует снимок...'),
                           ],
                         ),
+                      ),
+                    ),
+                  ],
+
+                  // Empty scan result state (e.g. photo of empty room or non-food)
+                  if (!_isProcessing && _hasScanned && _recognizedItems.isEmpty && _errorMessage == null) ...[
+                    Container(
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: AppColors.surface,
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(color: AppColors.cardBorder),
+                      ),
+                      child: Column(
+                        children: [
+                          const Icon(Icons.search_off_rounded, size: 36, color: AppColors.textTertiary),
+                          const SizedBox(height: 10),
+                          Text('Продукты не обнаружены', style: AppTypography.titleMedium),
+                          const SizedBox(height: 4),
+                          Text(
+                            'На данном снимке ИИ не обнаружил продуктов питания или кассового чека. Наведите камеру на полку с продуктами или чек.',
+                            textAlign: TextAlign.center,
+                            style: AppTypography.bodySmall,
+                          ),
+                        ],
                       ),
                     ),
                   ],
@@ -408,6 +560,8 @@ class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
           setState(() {
             _selectedMode = mode;
             _pickedImageBytes = null;
+            _hasScanned = false;
+            _errorMessage = null;
             _recognizedItems = [];
           });
         },
