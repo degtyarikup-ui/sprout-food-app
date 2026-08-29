@@ -263,7 +263,7 @@ class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
       builder: (ctx) {
         return StatefulBuilder(
           builder: (context, setSheetState) {
-            // Sort categories so selected is always first
+            // Smoothly place selected category at the first position
             final orderedCategories = [
               category,
               ...allCategories.where((c) => c != category),
@@ -431,28 +431,36 @@ class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
                   const SizedBox(height: 10),
 
                   // Category selector: Selected item is ALWAYS first and WITHOUT checkmark icon
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: orderedCategories.map((cat) {
-                        final isSel = category == cat;
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: ChoiceChip(
-                            showCheckmark: false, // NO CHECKMARK ICON
-                            label: Text(cat),
-                            selected: isSel,
-                            selectedColor: AppColors.primary,
-                            backgroundColor: AppColors.surfaceMuted,
-                            labelStyle: TextStyle(
-                              color: isSel ? AppColors.primaryForeground : AppColors.textPrimary,
-                              fontSize: 12,
-                              fontWeight: isSel ? FontWeight.w700 : FontWeight.w500,
+                  AnimatedSize(
+                    duration: const Duration(milliseconds: 320),
+                    curve: Curves.easeInOutCubic,
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        key: ValueKey('cats_$category'),
+                        children: orderedCategories.map((cat) {
+                          final isSel = category == cat;
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: ChoiceChip(
+                              showCheckmark: false, // NO CHECKMARK ICON
+                              label: Text(cat),
+                              selected: isSel,
+                              selectedColor: AppColors.primary,
+                              backgroundColor: AppColors.surfaceMuted,
+                              labelStyle: TextStyle(
+                                color: isSel ? AppColors.primaryForeground : AppColors.textPrimary,
+                                fontSize: 12,
+                                fontWeight: isSel ? FontWeight.w700 : FontWeight.w500,
+                              ),
+                              onSelected: (_) {
+                                HapticFeedback.selectionClick();
+                                setSheetState(() => category = cat);
+                              },
                             ),
-                            onSelected: (_) => setSheetState(() => category = cat),
-                          ),
-                        );
-                      }).toList(),
+                          );
+                        }).toList(),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 20),
@@ -765,7 +773,7 @@ class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
       body: Stack(
         fit: StackFit.expand,
         children: [
-          // Full Screen Photo View with tap detection to add new custom point
+          // Full Screen Photo View with tap detection
           LayoutBuilder(
             builder: (context, constraints) {
               final screenW = constraints.maxWidth;
@@ -781,17 +789,23 @@ class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
               double offsetX = 0;
               double offsetY = 0;
 
-              if (boxAspect > imgAspect) {
-                renderH = screenH;
-                renderW = screenH * imgAspect;
-                offsetX = (screenW - renderW) / 2;
-              } else {
+              if (_viewMode == 1) {
+                // In list view mode: upscale smoothly to fill screen for deep background blur
                 renderW = screenW;
-                renderH = screenW / imgAspect;
-                offsetY = (screenH - renderH) / 2;
+                renderH = screenH;
+              } else {
+                if (boxAspect > imgAspect) {
+                  renderH = screenH;
+                  renderW = screenH * imgAspect;
+                  offsetX = (screenW - renderW) / 2;
+                } else {
+                  renderW = screenW;
+                  renderH = screenW / imgAspect;
+                  offsetY = (screenH - renderH) / 2;
+                }
               }
 
-              // Precalculate Pin Points and Non-Overlapping Badge Positions with clearance from dots
+              // Precalculate Pin Points and Non-Overlapping Badge Positions with guaranteed distance from dots
               final layout = _calculateBadgeLayout(
                 renderW: renderW,
                 renderH: renderH,
@@ -808,16 +822,15 @@ class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
-                    // Photo Background
-                    Center(
-                      child: SizedBox(
-                        width: renderW,
-                        height: renderH,
-                        child: Image.memory(_pickedImageBytes!, fit: BoxFit.fill),
+                    // Photo Background (scaled to cover when in list mode)
+                    Positioned.fill(
+                      child: Image.memory(
+                        _pickedImageBytes!,
+                        fit: _viewMode == 1 ? BoxFit.cover : BoxFit.contain,
                       ),
                     ),
 
-                    // Dynamic Engaging Sci-Fi Scanner Animation
+                    // Dynamic Engaging Sci-Fi Scanner Animation without central circle
                     if (_isProcessing) const _EngagingScannerBeam(),
 
                     // If in Photo Mode and not processing: Render connecting lines and badges
@@ -831,11 +844,11 @@ class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
                       // Center Dot Pins on Products
                       ...layout.map((item) => _buildCenterDot(item)),
 
-                      // Frosted Glass Badges with High Transparency and Zero Outline
+                      // Frosted Glass Badges with High Transparency, No quantity, No pencil, No outline
                       ...layout.map((item) => _buildFrostedBadge(item)),
                     ],
 
-                    // If in List Mode: Render scrollable frosted list over photo
+                    // If in List Mode: Render scrollable frosted list over the full blurred photo
                     if (!_isProcessing && _hasScanned && _viewMode == 1)
                       _buildFrostedListView(topPadding, bottomPadding),
                   ],
@@ -871,7 +884,7 @@ class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
                         width: 44,
                         height: 44,
                         decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.35),
+                          color: Colors.black.withValues(alpha: 0.32),
                           shape: BoxShape.circle,
                         ),
                         child: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 20),
@@ -889,7 +902,7 @@ class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
                       child: Container(
                         padding: const EdgeInsets.all(3),
                         decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.35),
+                          color: Colors.black.withValues(alpha: 0.32),
                           borderRadius: BorderRadius.circular(22),
                         ),
                         child: Row(
@@ -903,7 +916,7 @@ class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
                     ),
                   )
                 else if (_isProcessing)
-                  // Engaging Dynamic Scanning Status Pill
+                  // Engaging Dynamic Scanning Status Pill (1.8s interval)
                   const _ScanningStatusPill(),
 
                 const SizedBox(width: 44), // balance spacing
@@ -934,7 +947,7 @@ class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
                               height: 52,
                               padding: const EdgeInsets.symmetric(horizontal: 16),
                               decoration: BoxDecoration(
-                                color: Colors.black.withValues(alpha: 0.35),
+                                color: Colors.black.withValues(alpha: 0.32),
                                 borderRadius: BorderRadius.circular(18),
                               ),
                               child: const Row(
@@ -1049,7 +1062,7 @@ class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
     );
   }
 
-  /// Frosted Glass Badge with HIGH TRANSPARENCY, ZERO border outline, and soft shadow
+  /// Frosted Glass Badge with HIGH TRANSPARENCY, NO QUANTITY, NO PENCIL ICON, NO OUTLINE
   Widget _buildFrostedBadge(_BadgeLayoutItem item) {
     return Positioned(
       left: item.badgeX,
@@ -1061,13 +1074,13 @@ class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
           child: BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.30), // High transparency translucent frosted blur
+                color: Colors.black.withValues(alpha: 0.28), // Deep transparent frosted blur without outline
                 borderRadius: BorderRadius.circular(14),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.25),
+                    color: Colors.black.withValues(alpha: 0.2),
                     blurRadius: 10,
                     offset: const Offset(0, 3),
                   ),
@@ -1093,17 +1106,6 @@ class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
                       ],
                     ),
                   ),
-                  const SizedBox(width: 4),
-                  Text(
-                    '${item.product.amount.toStringAsFixed(item.product.amount % 1 == 0 ? 0 : 1)} ${item.product.unit}',
-                    style: const TextStyle(
-                      color: Colors.white70,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  const Icon(Icons.edit, size: 10, color: Colors.white54),
                 ],
               ),
             ),
@@ -1120,9 +1122,9 @@ class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
       bottom: bottomPadding + 80,
       child: ClipRRect(
         child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+          filter: ImageFilter.blur(sigmaX: 28, sigmaY: 28),
           child: Container(
-            color: Colors.black.withValues(alpha: 0.68),
+            color: Colors.black.withValues(alpha: 0.65),
             child: ListView.builder(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               itemCount: _recognizedItems.length,
@@ -1231,19 +1233,25 @@ class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
         dotY = offsetY + 120 + (col * 140);
       }
 
-      // Ensure badge is pushed away from the dot with clear offset (never covers the dot)
+      // Compact width estimation for Emoji + Name
+      final estimatedW = (product.name.length * 8.5 + 32.0).clamp(60.0, 140.0);
+
+      // Decision: place badge to the left or right of the dot, keeping clear distance
       final isOnLeftSide = dotX < (screenW / 2);
-      double badgeX = isOnLeftSide ? (dotX + 38) : (dotX - 170);
-      double badgeY = dotY - 32;
+      double badgeX = isOnLeftSide ? (dotX + 40.0) : (dotX - estimatedW - 40.0);
+      double badgeY = dotY - 14.0;
 
       // Keep strictly within screen bounds
-      badgeX = badgeX.clamp(14.0, screenW - 185.0);
+      badgeX = badgeX.clamp(14.0, screenW - estimatedW - 14.0);
       badgeY = badgeY.clamp(topPadding + 64.0, screenH - bottomPadding - 100.0);
 
-      // If badgeX ends up covering the dot horizontally, shift it further away
-      if ((badgeX - dotX).abs() < 24) {
-        badgeX = (dotX > screenW / 2) ? (dotX - 150) : (dotX + 40);
-        badgeX = badgeX.clamp(14.0, screenW - 185.0);
+      // Guarantee minimum horizontal separation between dot and badge (NEVER cover the dot)
+      if (dotX >= badgeX - 6 && dotX <= badgeX + estimatedW + 6) {
+        if (isOnLeftSide) {
+          badgeX = (dotX + 40.0).clamp(14.0, screenW - estimatedW - 14.0);
+        } else {
+          badgeX = (dotX - estimatedW - 40.0).clamp(14.0, screenW - estimatedW - 14.0);
+        }
       }
 
       items.add(
@@ -1254,21 +1262,25 @@ class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
           dotY: dotY.clamp(offsetY + 8, offsetY + renderH - 8),
           badgeX: badgeX,
           badgeY: badgeY,
+          estimatedBadgeWidth: estimatedW,
         ),
       );
     }
 
-    // Anti-collision relaxation pass on badge vertical coordinates
+    // Sort by vertical position and apply relaxation pass
     items.sort((a, b) => a.badgeY.compareTo(b.badgeY));
-    const minVerticalGap = 38.0;
+    const minVerticalGap = 34.0;
 
-    for (int i = 1; i < items.length; i++) {
-      final prev = items[i - 1];
-      final curr = items[i];
+    for (int step = 0; step < 2; step++) {
+      for (int i = 1; i < items.length; i++) {
+        final prev = items[i - 1];
+        final curr = items[i];
 
-      // Check if both badges are horizontally close (overlapping)
-      if ((curr.badgeX - prev.badgeX).abs() < 140) {
-        if (curr.badgeY < prev.badgeY + minVerticalGap) {
+        // Check if both badges overlap horizontally
+        final isHorizOverlap = (curr.badgeX < prev.badgeX + prev.estimatedBadgeWidth + 10) &&
+            (curr.badgeX + curr.estimatedBadgeWidth > prev.badgeX - 10);
+
+        if (isHorizOverlap && (curr.badgeY - prev.badgeY).abs() < minVerticalGap) {
           curr.badgeY = (prev.badgeY + minVerticalGap).clamp(topPadding + 64.0, screenH - bottomPadding - 100.0);
         }
       }
@@ -1285,6 +1297,7 @@ class _BadgeLayoutItem {
   final double dotY;
   double badgeX;
   double badgeY;
+  final double estimatedBadgeWidth;
 
   _BadgeLayoutItem({
     required this.index,
@@ -1293,6 +1306,7 @@ class _BadgeLayoutItem {
     required this.dotY,
     required this.badgeX,
     required this.badgeY,
+    required this.estimatedBadgeWidth,
   });
 }
 
@@ -1305,8 +1319,8 @@ class _ConnectingLinesPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final linePaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.6)
-      ..strokeWidth = 1.4
+      ..color = Colors.white.withValues(alpha: 0.65)
+      ..strokeWidth = 1.3
       ..style = PaintingStyle.stroke;
 
     final dotHaloPaint = Paint()
@@ -1314,17 +1328,32 @@ class _ConnectingLinesPainter extends CustomPainter {
       ..style = PaintingStyle.fill;
 
     for (final item in layout) {
-      // Connect dot to the closest edge of badge
-      final targetX = item.badgeX > item.dotX ? item.badgeX : item.badgeX + 130;
-      final targetY = item.badgeY + 16;
-
-      // Draw subtle halo behind the dot
       canvas.drawCircle(Offset(item.dotX, item.dotY), 7, dotHaloPaint);
+
+      final badgeW = item.estimatedBadgeWidth;
+      const badgeH = 28.0;
+
+      double targetX, targetY;
+
+      // Calculate exact attachment point on the badge boundary (zero gaps)
+      if (item.dotX < item.badgeX) {
+        // Dot is to the left of the badge -> connect directly to left edge
+        targetX = item.badgeX;
+        targetY = item.badgeY + (badgeH / 2);
+      } else if (item.dotX > item.badgeX + badgeW) {
+        // Dot is to the right of the badge -> connect directly to right edge
+        targetX = item.badgeX + badgeW;
+        targetY = item.badgeY + (badgeH / 2);
+      } else {
+        // Vertically aligned -> connect to top or bottom edge
+        targetX = item.badgeX + (badgeW / 2);
+        targetY = item.dotY < item.badgeY ? item.badgeY : item.badgeY + badgeH;
+      }
 
       final path = Path();
       path.moveTo(item.dotX, item.dotY);
 
-      // Longer, continuous uninterrupted smooth bezier curve directly to badge
+      // Smooth, natural continuous curve with zero interruption
       final midX = (item.dotX + targetX) / 2;
       path.cubicTo(
         midX, item.dotY,
@@ -1340,7 +1369,7 @@ class _ConnectingLinesPainter extends CustomPainter {
   bool shouldRepaint(covariant _ConnectingLinesPainter oldDelegate) => true;
 }
 
-/// Dynamic, engaging scanning status pill with cycling phrases
+/// Dynamic, engaging scanning status pill with cycling phrases (1.8s interval)
 class _ScanningStatusPill extends StatefulWidget {
   const _ScanningStatusPill();
 
@@ -1363,7 +1392,7 @@ class _ScanningStatusPillState extends State<_ScanningStatusPill> {
   @override
   void initState() {
     super.initState();
-    _timer = Timer.periodic(const Duration(milliseconds: 700), (_) {
+    _timer = Timer.periodic(const Duration(milliseconds: 1800), (_) {
       if (mounted) {
         setState(() {
           _phraseIdx = (_phraseIdx + 1) % _phrases.length;
@@ -1387,7 +1416,7 @@ class _ScanningStatusPillState extends State<_ScanningStatusPill> {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
           decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: 0.4),
+            color: Colors.black.withValues(alpha: 0.35),
             borderRadius: BorderRadius.circular(20),
           ),
           child: Row(
@@ -1400,7 +1429,7 @@ class _ScanningStatusPillState extends State<_ScanningStatusPill> {
               ),
               const SizedBox(width: 8),
               AnimatedSwitcher(
-                duration: const Duration(milliseconds: 250),
+                duration: const Duration(milliseconds: 300),
                 child: Text(
                   _phrases[_phraseIdx],
                   key: ValueKey(_phrases[_phraseIdx]),
@@ -1415,7 +1444,7 @@ class _ScanningStatusPillState extends State<_ScanningStatusPill> {
   }
 }
 
-/// Engaging Sci-Fi Scanner Animation with moving laser line, radar nodes and holographic mesh
+/// Engaging Sci-Fi Scanner Animation with moving laser line (no center circle, smooth speed)
 class _EngagingScannerBeam extends StatefulWidget {
   const _EngagingScannerBeam();
 
@@ -1431,7 +1460,7 @@ class _EngagingScannerBeamState extends State<_EngagingScannerBeam> with SingleT
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1800),
+      duration: const Duration(milliseconds: 2800), // Smooth, cinematic 2.8s sweep
     )..repeat(reverse: true);
   }
 
@@ -1447,66 +1476,45 @@ class _EngagingScannerBeamState extends State<_EngagingScannerBeam> with SingleT
       animation: _controller,
       builder: (context, child) {
         final progress = _controller.value;
-        return Stack(
-          fit: StackFit.expand,
-          children: [
-            // Holographic scanning sweep overlay
-            Align(
-              alignment: Alignment(0, (progress * 2) - 1),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    height: 50,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Colors.white.withValues(alpha: 0.0),
-                          Colors.white.withValues(alpha: 0.15),
-                        ],
-                      ),
-                    ),
-                  ),
-                  Container(
-                    height: 3,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          Colors.white.withValues(alpha: 0.0),
-                          Colors.white.withValues(alpha: 0.95),
-                          Colors.white.withValues(alpha: 0.0),
-                        ],
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.white.withValues(alpha: 0.8),
-                          blurRadius: 16,
-                          spreadRadius: 3,
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // Pulsing target scanning reticle
-            Center(
-              child: Container(
-                width: 140 * (0.85 + 0.15 * progress),
-                height: 140 * (0.85 + 0.15 * progress),
+        return Align(
+          alignment: Alignment(0, (progress * 2) - 1),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                height: 40,
                 decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.25 * (1 - progress * 0.5)),
-                    width: 1.5,
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.white.withValues(alpha: 0.0),
+                      Colors.white.withValues(alpha: 0.12),
+                    ],
                   ),
                 ),
               ),
-            ),
-          ],
+              Container(
+                height: 2.5,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      Colors.white.withValues(alpha: 0.0),
+                      Colors.white.withValues(alpha: 0.95),
+                      Colors.white.withValues(alpha: 0.0),
+                    ],
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.white.withValues(alpha: 0.75),
+                      blurRadius: 14,
+                      spreadRadius: 2,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         );
       },
     );
