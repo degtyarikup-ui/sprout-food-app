@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui' as ui;
 import 'dart:ui';
 import 'package:flutter/material.dart';
@@ -170,7 +171,72 @@ class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
     );
   }
 
-  void _showEditItemSheet(ProductItem item, int index) {
+  void _showEmojiPicker(BuildContext context, String currentEmoji, Function(String) onSelected) {
+    HapticFeedback.selectionClick();
+    const foodEmojis = [
+      '🥑', '🥛', '🧀', '🍅', '🥚', '🍗', '🥩', '🐟', '🍞', '🥒',
+      '🥕', '🍎', '🍌', '🍓', '🍇', '🍋', '🧄', '🧅', '🌽', '🥬',
+      '🥦', '🍄', '🍝', '🍚', '🥫', '🫒', '🧈', '🍯', '🍫', '🍦',
+      '🍰', '🧃', '☕', '🍵', '🥤', '🍱', '🥗', '🍲', '🍕', '🥪',
+    ];
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return Container(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+          decoration: const BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppColors.cardBorder,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text('Выберите иконку продукта', style: AppTypography.titleSmall),
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: foodEmojis.map((emoji) {
+                  final isSelected = emoji == currentEmoji;
+                  return GestureDetector(
+                    onTap: () {
+                      HapticFeedback.selectionClick();
+                      onSelected(emoji);
+                      Navigator.pop(ctx);
+                    },
+                    child: Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: isSelected ? AppColors.primary.withValues(alpha: 0.15) : AppColors.surfaceMuted,
+                        borderRadius: BorderRadius.circular(12),
+                        border: isSelected ? Border.all(color: AppColors.primary, width: 1.5) : null,
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(emoji, style: const TextStyle(fontSize: 24)),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showEditItemSheet(ProductItem item, int index, {bool isNew = false}) {
     HapticFeedback.mediumImpact();
     final nameCtrl = TextEditingController(text: item.name);
     double amount = item.amount;
@@ -179,7 +245,7 @@ class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
     int shelfLife = item.daysUntilExpiry > 0 ? item.daysUntilExpiry : 4;
     String emoji = item.emoji;
 
-    final categories = [
+    final allCategories = [
       'Овощи и зелень',
       'Фрукты и ягоды',
       'Молочные продукты',
@@ -197,6 +263,12 @@ class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
       builder: (ctx) {
         return StatefulBuilder(
           builder: (context, setSheetState) {
+            // Sort categories so selected is always first
+            final orderedCategories = [
+              category,
+              ...allCategories.where((c) => c != category),
+            ];
+
             return Container(
               padding: EdgeInsets.fromLTRB(20, 16, 20, MediaQuery.of(context).viewInsets.bottom + 24),
               decoration: const BoxDecoration(
@@ -220,21 +292,57 @@ class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
                   const SizedBox(height: 16),
                   Row(
                     children: [
-                      Text(emoji, style: const TextStyle(fontSize: 28)),
+                      // Clickable Emoji Picker Avatar
+                      GestureDetector(
+                        onTap: () {
+                          _showEmojiPicker(context, emoji, (newEmoji) {
+                            setSheetState(() => emoji = newEmoji);
+                          });
+                        },
+                        child: Container(
+                          width: 48,
+                          height: 48,
+                          decoration: BoxDecoration(
+                            color: AppColors.surfaceMuted,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: AppColors.cardBorder),
+                          ),
+                          alignment: Alignment.center,
+                          child: Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              Text(emoji, style: const TextStyle(fontSize: 26)),
+                              Positioned(
+                                right: 0,
+                                bottom: 0,
+                                child: Container(
+                                  padding: const EdgeInsets.all(2),
+                                  decoration: const BoxDecoration(
+                                    color: AppColors.primary,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(Icons.edit, size: 8, color: Colors.white),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
-                          'Редактировать продукт',
+                          isNew ? 'Добавить продукт' : 'Редактировать продукт',
                           style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.w700),
                         ),
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.delete_outline_rounded, color: AppColors.statusUrgent),
-                        onPressed: () {
-                          Navigator.pop(ctx);
-                          _removeItem(index);
-                        },
-                      ),
+                      if (!isNew)
+                        IconButton(
+                          icon: const Icon(Icons.delete_outline_rounded, color: AppColors.statusUrgent),
+                          onPressed: () {
+                            Navigator.pop(ctx);
+                            _removeItem(index);
+                          },
+                        ),
                     ],
                   ),
                   const SizedBox(height: 16),
@@ -242,8 +350,10 @@ class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
                   // Name Field
                   TextField(
                     controller: nameCtrl,
+                    autofocus: isNew,
                     decoration: const InputDecoration(
                       labelText: 'Название продукта',
+                      hintText: 'Например: Сыр Пармезан',
                       prefixIcon: Icon(Icons.edit_outlined, size: 20),
                     ),
                   ),
@@ -320,21 +430,24 @@ class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
                   ),
                   const SizedBox(height: 10),
 
-                  // Category selector
+                  // Category selector: Selected item is ALWAYS first and WITHOUT checkmark icon
                   SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     child: Row(
-                      children: categories.map((cat) {
+                      children: orderedCategories.map((cat) {
                         final isSel = category == cat;
                         return Padding(
                           padding: const EdgeInsets.only(right: 8),
                           child: ChoiceChip(
+                            showCheckmark: false, // NO CHECKMARK ICON
                             label: Text(cat),
                             selected: isSel,
                             selectedColor: AppColors.primary,
+                            backgroundColor: AppColors.surfaceMuted,
                             labelStyle: TextStyle(
                               color: isSel ? AppColors.primaryForeground : AppColors.textPrimary,
                               fontSize: 12,
+                              fontWeight: isSel ? FontWeight.w700 : FontWeight.w500,
                             ),
                             onSelected: (_) => setSheetState(() => category = cat),
                           ),
@@ -350,20 +463,28 @@ class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
                     height: 50,
                     child: ElevatedButton(
                       onPressed: () {
+                        final finalName = nameCtrl.text.trim().isNotEmpty ? nameCtrl.text.trim() : (isNew ? 'Продукт' : item.name);
                         final updated = item.copyWith(
-                          name: nameCtrl.text.trim().isNotEmpty ? nameCtrl.text.trim() : item.name,
+                          name: finalName,
                           amount: amount,
                           unit: unit,
                           category: category,
+                          emoji: emoji,
                           expiryDate: DateTime.now().add(Duration(days: shelfLife)),
                         );
+
                         setState(() {
-                          _recognizedItems[index] = updated;
+                          if (isNew) {
+                            _recognizedItems.add(updated);
+                          } else {
+                            _recognizedItems[index] = updated;
+                          }
                         });
+
                         Navigator.pop(ctx);
                         HapticFeedback.lightImpact();
                       },
-                      child: const Text('Сохранить изменения'),
+                      child: Text(isNew ? 'Добавить продукт' : 'Сохранить изменения'),
                     ),
                   ),
                 ],
@@ -373,6 +494,32 @@ class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
         );
       },
     );
+  }
+
+  void _handlePhotoTap(TapUpDetails details, double renderW, double renderH, double offsetX, double offsetY) {
+    if (_isProcessing || !_hasScanned || _viewMode != 0) return;
+
+    final localPos = details.localPosition;
+    if (localPos.dx < offsetX || localPos.dx > offsetX + renderW ||
+        localPos.dy < offsetY || localPos.dy > offsetY + renderH) {
+      return;
+    }
+
+    final relX = (localPos.dx - offsetX) / renderW * 1000.0;
+    final relY = (localPos.dy - offsetY) / renderH * 1000.0;
+
+    final newItem = ProductItem(
+      name: '',
+      amount: 1.0,
+      unit: 'шт',
+      category: 'Овощи и зелень',
+      addedDate: DateTime.now(),
+      expiryDate: DateTime.now().add(const Duration(days: 4)),
+      emoji: '🥑',
+      box2d: [relY - 15, relX - 15, relY + 15, relX + 15],
+    );
+
+    _showEditItemSheet(newItem, -1, isNew: true);
   }
 
   @override
@@ -497,7 +644,7 @@ class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 32),
                       child: Text(
                         isProducts
-                            ? 'ИИ поставит точку в центре каждого продукта с линией к блюр-плашке'
+                            ? 'ИИ расставит метки с линиями на прозрачном блюре. Можно нажать на фото для добавления.'
                             : 'Распознает все позиции, цены и сроки хранения',
                         textAlign: TextAlign.center,
                         style: AppTypography.bodySmall,
@@ -618,7 +765,7 @@ class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
       body: Stack(
         fit: StackFit.expand,
         children: [
-          // Full Screen Photo View (when in photo mode or during scan)
+          // Full Screen Photo View with tap detection to add new custom point
           LayoutBuilder(
             builder: (context, constraints) {
               final screenW = constraints.maxWidth;
@@ -644,7 +791,7 @@ class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
                 offsetY = (screenH - renderH) / 2;
               }
 
-              // Precalculate Pin Points and Non-Overlapping Badge Positions
+              // Precalculate Pin Points and Non-Overlapping Badge Positions with clearance from dots
               final layout = _calculateBadgeLayout(
                 renderW: renderW,
                 renderH: renderH,
@@ -656,40 +803,43 @@ class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
                 bottomPadding: bottomPadding,
               );
 
-              return Stack(
-                fit: StackFit.expand,
-                children: [
-                  // Photo Background
-                  Center(
-                    child: SizedBox(
-                      width: renderW,
-                      height: renderH,
-                      child: Image.memory(_pickedImageBytes!, fit: BoxFit.fill),
-                    ),
-                  ),
-
-                  // Scanning Beam Animation while processing
-                  if (_isProcessing) const _ScannerBeam(),
-
-                  // If in Photo Mode and not processing: Render connecting lines and badges
-                  if (!_isProcessing && _hasScanned && _viewMode == 0) ...[
-                    // Custom Painter for Connecting Lines ("Палочки")
-                    CustomPaint(
-                      size: Size(screenW, screenH),
-                      painter: _ConnectingLinesPainter(layout: layout),
+              return GestureDetector(
+                onTapUp: (details) => _handlePhotoTap(details, renderW, renderH, offsetX, offsetY),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    // Photo Background
+                    Center(
+                      child: SizedBox(
+                        width: renderW,
+                        height: renderH,
+                        child: Image.memory(_pickedImageBytes!, fit: BoxFit.fill),
+                      ),
                     ),
 
-                    // Center Dot Pins on Products
-                    ...layout.map((item) => _buildCenterDot(item)),
+                    // Dynamic Engaging Sci-Fi Scanner Animation
+                    if (_isProcessing) const _EngagingScannerBeam(),
 
-                    // Frosted Glass Badges without Outlines
-                    ...layout.map((item) => _buildFrostedBadge(item)),
+                    // If in Photo Mode and not processing: Render connecting lines and badges
+                    if (!_isProcessing && _hasScanned && _viewMode == 0) ...[
+                      // Continuous Connecting Lines ("Палочки")
+                      CustomPaint(
+                        size: Size(screenW, screenH),
+                        painter: _ConnectingLinesPainter(layout: layout),
+                      ),
+
+                      // Center Dot Pins on Products
+                      ...layout.map((item) => _buildCenterDot(item)),
+
+                      // Frosted Glass Badges with High Transparency and Zero Outline
+                      ...layout.map((item) => _buildFrostedBadge(item)),
+                    ],
+
+                    // If in List Mode: Render scrollable frosted list over photo
+                    if (!_isProcessing && _hasScanned && _viewMode == 1)
+                      _buildFrostedListView(topPadding, bottomPadding),
                   ],
-
-                  // If in List Mode: Render scrollable frosted list over photo
-                  if (!_isProcessing && _hasScanned && _viewMode == 1)
-                    _buildFrostedListView(topPadding, bottomPadding),
-                ],
+                ),
               );
             },
           ),
@@ -706,7 +856,7 @@ class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
                 ClipRRect(
                   borderRadius: BorderRadius.circular(22),
                   child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+                    filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
                     child: GestureDetector(
                       onTap: () {
                         HapticFeedback.lightImpact();
@@ -721,7 +871,7 @@ class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
                         width: 44,
                         height: 44,
                         decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.45),
+                          color: Colors.black.withValues(alpha: 0.35),
                           shape: BoxShape.circle,
                         ),
                         child: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 20),
@@ -735,11 +885,11 @@ class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
                   ClipRRect(
                     borderRadius: BorderRadius.circular(22),
                     child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+                      filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
                       child: Container(
                         padding: const EdgeInsets.all(3),
                         decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.45),
+                          color: Colors.black.withValues(alpha: 0.35),
                           borderRadius: BorderRadius.circular(22),
                         ),
                         child: Row(
@@ -753,35 +903,8 @@ class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
                     ),
                   )
                 else if (_isProcessing)
-                  // Processing status pill
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(20),
-                    child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.45),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            SizedBox(
-                              width: 14,
-                              height: 14,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                            ),
-                            SizedBox(width: 8),
-                            Text(
-                              'ИИ ставит точки...',
-                              style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
+                  // Engaging Dynamic Scanning Status Pill
+                  const _ScanningStatusPill(),
 
                 const SizedBox(width: 44), // balance spacing
               ],
@@ -801,7 +924,7 @@ class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
                       ClipRRect(
                         borderRadius: BorderRadius.circular(18),
                         child: BackdropFilter(
-                          filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+                          filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
                           child: GestureDetector(
                             onTap: () {
                               HapticFeedback.lightImpact();
@@ -811,7 +934,7 @@ class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
                               height: 52,
                               padding: const EdgeInsets.symmetric(horizontal: 16),
                               decoration: BoxDecoration(
-                                color: Colors.black.withValues(alpha: 0.45),
+                                color: Colors.black.withValues(alpha: 0.35),
                                 borderRadius: BorderRadius.circular(18),
                               ),
                               child: const Row(
@@ -869,7 +992,7 @@ class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
         decoration: BoxDecoration(
-          color: isSelected ? Colors.white.withValues(alpha: 0.25) : Colors.transparent,
+          color: isSelected ? Colors.white.withValues(alpha: 0.28) : Colors.transparent,
           borderRadius: BorderRadius.circular(18),
         ),
         child: Row(
@@ -914,7 +1037,7 @@ class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
               color: Colors.white,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black45,
+                  color: Colors.black54,
                   blurRadius: 4,
                   offset: Offset(0, 1),
                 ),
@@ -926,7 +1049,7 @@ class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
     );
   }
 
-  /// Frosted Glass Badge with ZERO border outline and soft shadow
+  /// Frosted Glass Badge with HIGH TRANSPARENCY, ZERO border outline, and soft shadow
   Widget _buildFrostedBadge(_BadgeLayoutItem item) {
     return Positioned(
       left: item.badgeX,
@@ -936,15 +1059,15 @@ class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
         child: ClipRRect(
           borderRadius: BorderRadius.circular(14),
           child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+            filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
               decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.48), // Translucent frosted blur without outline
+                color: Colors.black.withValues(alpha: 0.30), // High transparency translucent frosted blur
                 borderRadius: BorderRadius.circular(14),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.3),
+                    color: Colors.black.withValues(alpha: 0.25),
                     blurRadius: 10,
                     offset: const Offset(0, 3),
                   ),
@@ -963,7 +1086,7 @@ class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
                       fontWeight: FontWeight.w700,
                       shadows: [
                         Shadow(
-                          color: Colors.black54,
+                          color: Colors.black87,
                           blurRadius: 6,
                           offset: Offset(0, 1),
                         ),
@@ -999,7 +1122,7 @@ class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
           child: Container(
-            color: Colors.black.withValues(alpha: 0.72),
+            color: Colors.black.withValues(alpha: 0.68),
             child: ListView.builder(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               itemCount: _recognizedItems.length,
@@ -1069,7 +1192,7 @@ class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
     );
   }
 
-  /// Calculates center pins and non-overlapping badge positions with relaxation
+  /// Calculates center pins and non-overlapping badge positions with guaranteed distance from dots
   List<_BadgeLayoutItem> _calculateBadgeLayout({
     required double renderW,
     required double renderH,
@@ -1108,13 +1231,20 @@ class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
         dotY = offsetY + 120 + (col * 140);
       }
 
-      // Initial desired badge placement (offset above / to the side of the dot)
+      // Ensure badge is pushed away from the dot with clear offset (never covers the dot)
       final isOnLeftSide = dotX < (screenW / 2);
-      double badgeX = isOnLeftSide ? (dotX + 16) : (dotX - 160);
-      double badgeY = dotY - 26;
+      double badgeX = isOnLeftSide ? (dotX + 38) : (dotX - 170);
+      double badgeY = dotY - 32;
 
-      badgeX = badgeX.clamp(14.0, screenW - 180.0);
+      // Keep strictly within screen bounds
+      badgeX = badgeX.clamp(14.0, screenW - 185.0);
       badgeY = badgeY.clamp(topPadding + 64.0, screenH - bottomPadding - 100.0);
+
+      // If badgeX ends up covering the dot horizontally, shift it further away
+      if ((badgeX - dotX).abs() < 24) {
+        badgeX = (dotX > screenW / 2) ? (dotX - 150) : (dotX + 40);
+        badgeX = badgeX.clamp(14.0, screenW - 185.0);
+      }
 
       items.add(
         _BadgeLayoutItem(
@@ -1130,16 +1260,16 @@ class _AiMagicScanScreenState extends ConsumerState<AiMagicScanScreen> {
 
     // Anti-collision relaxation pass on badge vertical coordinates
     items.sort((a, b) => a.badgeY.compareTo(b.badgeY));
-    const minVerticalGap = 36.0;
+    const minVerticalGap = 38.0;
 
     for (int i = 1; i < items.length; i++) {
       final prev = items[i - 1];
       final curr = items[i];
 
       // Check if both badges are horizontally close (overlapping)
-      if ((curr.badgeX - prev.badgeX).abs() < 130) {
+      if ((curr.badgeX - prev.badgeX).abs() < 140) {
         if (curr.badgeY < prev.badgeY + minVerticalGap) {
-          curr.badgeY = prev.badgeY + minVerticalGap;
+          curr.badgeY = (prev.badgeY + minVerticalGap).clamp(topPadding + 64.0, screenH - bottomPadding - 100.0);
         }
       }
     }
@@ -1166,7 +1296,7 @@ class _BadgeLayoutItem {
   });
 }
 
-/// CustomPainter that draws elegant connecting leader lines ("палочки") from center dots to badges
+/// CustomPainter that draws uninterrupted continuous smooth leader lines ("палочки") from center dots to badges
 class _ConnectingLinesPainter extends CustomPainter {
   final List<_BadgeLayoutItem> layout;
 
@@ -1175,26 +1305,26 @@ class _ConnectingLinesPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final linePaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.5)
-      ..strokeWidth = 1.2
+      ..color = Colors.white.withValues(alpha: 0.6)
+      ..strokeWidth = 1.4
       ..style = PaintingStyle.stroke;
 
     final dotHaloPaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.25)
+      ..color = Colors.white.withValues(alpha: 0.22)
       ..style = PaintingStyle.fill;
 
     for (final item in layout) {
-      // Connect dot to badge anchor
-      final targetX = item.badgeX > item.dotX ? item.badgeX : item.badgeX + 140;
+      // Connect dot to the closest edge of badge
+      final targetX = item.badgeX > item.dotX ? item.badgeX : item.badgeX + 130;
       final targetY = item.badgeY + 16;
 
       // Draw subtle halo behind the dot
-      canvas.drawCircle(Offset(item.dotX, item.dotY), 6, dotHaloPaint);
+      canvas.drawCircle(Offset(item.dotX, item.dotY), 7, dotHaloPaint);
 
       final path = Path();
       path.moveTo(item.dotX, item.dotY);
 
-      // Smooth elbow bezier curve to badge
+      // Longer, continuous uninterrupted smooth bezier curve directly to badge
       final midX = (item.dotX + targetX) / 2;
       path.cubicTo(
         midX, item.dotY,
@@ -1210,15 +1340,90 @@ class _ConnectingLinesPainter extends CustomPainter {
   bool shouldRepaint(covariant _ConnectingLinesPainter oldDelegate) => true;
 }
 
-/// Scanning radar beam animation
-class _ScannerBeam extends StatefulWidget {
-  const _ScannerBeam();
+/// Dynamic, engaging scanning status pill with cycling phrases
+class _ScanningStatusPill extends StatefulWidget {
+  const _ScanningStatusPill();
 
   @override
-  State<_ScannerBeam> createState() => _ScannerBeamState();
+  State<_ScanningStatusPill> createState() => _ScanningStatusPillState();
 }
 
-class _ScannerBeamState extends State<_ScannerBeam> with SingleTickerProviderStateMixin {
+class _ScanningStatusPillState extends State<_ScanningStatusPill> {
+  int _phraseIdx = 0;
+  Timer? _timer;
+
+  final _phrases = [
+    'Gemini Vision сканирует...',
+    'Распознавание объектов...',
+    'Считывание упаковок...',
+    'Оценка сроков хранения...',
+    'Расстановка AR-меток...',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(const Duration(milliseconds: 700), (_) {
+      if (mounted) {
+        setState(() {
+          _phraseIdx = (_phraseIdx + 1) % _phrases.length;
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(20),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.4),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(
+                width: 14,
+                height: 14,
+                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+              ),
+              const SizedBox(width: 8),
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 250),
+                child: Text(
+                  _phrases[_phraseIdx],
+                  key: ValueKey(_phrases[_phraseIdx]),
+                  style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Engaging Sci-Fi Scanner Animation with moving laser line, radar nodes and holographic mesh
+class _EngagingScannerBeam extends StatefulWidget {
+  const _EngagingScannerBeam();
+
+  @override
+  State<_EngagingScannerBeam> createState() => _EngagingScannerBeamState();
+}
+
+class _EngagingScannerBeamState extends State<_EngagingScannerBeam> with SingleTickerProviderStateMixin {
   late AnimationController _controller;
 
   @override
@@ -1226,7 +1431,7 @@ class _ScannerBeamState extends State<_ScannerBeam> with SingleTickerProviderSta
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1600),
+      duration: const Duration(milliseconds: 1800),
     )..repeat(reverse: true);
   }
 
@@ -1241,27 +1446,67 @@ class _ScannerBeamState extends State<_ScannerBeam> with SingleTickerProviderSta
     return AnimatedBuilder(
       animation: _controller,
       builder: (context, child) {
-        return Align(
-          alignment: Alignment(0, (_controller.value * 2) - 1),
-          child: Container(
-            height: 3,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  Colors.white.withValues(alpha: 0.0),
-                  Colors.white.withValues(alpha: 0.9),
-                  Colors.white.withValues(alpha: 0.0),
+        final progress = _controller.value;
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            // Holographic scanning sweep overlay
+            Align(
+              alignment: Alignment(0, (progress * 2) - 1),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    height: 50,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.white.withValues(alpha: 0.0),
+                          Colors.white.withValues(alpha: 0.15),
+                        ],
+                      ),
+                    ),
+                  ),
+                  Container(
+                    height: 3,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          Colors.white.withValues(alpha: 0.0),
+                          Colors.white.withValues(alpha: 0.95),
+                          Colors.white.withValues(alpha: 0.0),
+                        ],
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.white.withValues(alpha: 0.8),
+                          blurRadius: 16,
+                          spreadRadius: 3,
+                        ),
+                      ],
+                    ),
+                  ),
                 ],
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.white.withValues(alpha: 0.7),
-                  blurRadius: 14,
-                  spreadRadius: 2,
-                ),
-              ],
             ),
-          ),
+
+            // Pulsing target scanning reticle
+            Center(
+              child: Container(
+                width: 140 * (0.85 + 0.15 * progress),
+                height: 140 * (0.85 + 0.15 * progress),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.25 * (1 - progress * 0.5)),
+                    width: 1.5,
+                  ),
+                ),
+              ),
+            ),
+          ],
         );
       },
     );
