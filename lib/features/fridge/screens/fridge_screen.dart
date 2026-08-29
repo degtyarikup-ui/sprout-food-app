@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../ai_scanner/screens/ai_magic_scan_screen.dart';
 import '../models/freshness_category.dart';
 import '../models/product_item.dart';
 import '../providers/fridge_provider.dart';
@@ -58,6 +59,7 @@ class _FridgeScreenState extends ConsumerState<FridgeScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.add_rounded, size: 24),
+            tooltip: 'Добавить вручную',
             onPressed: () {
               HapticFeedback.lightImpact();
               showModalBottomSheet(
@@ -71,9 +73,24 @@ class _FridgeScreenState extends ConsumerState<FridgeScreen> {
           const SizedBox(width: 8),
         ],
       ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {
+          HapticFeedback.mediumImpact();
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const AiMagicScanScreen()),
+          );
+        },
+        backgroundColor: AppColors.primary,
+        foregroundColor: AppColors.primaryForeground,
+        elevation: 2,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        icon: const Icon(Icons.camera_alt_rounded, size: 20),
+        label: const Text('Сканировать', style: TextStyle(fontWeight: FontWeight.w700)),
+      ),
       body: CustomScrollView(
         slivers: [
-          // Filter Chips (Clean monochromatic pills)
+          // Filter Chips (Clean monochromatic pills with zero borders)
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
@@ -143,13 +160,13 @@ class _FridgeScreenState extends ConsumerState<FridgeScreen> {
                         const SizedBox(height: 12),
                         Text('Холодильник пуст', style: AppTypography.titleMedium),
                         const SizedBox(height: 4),
-                        Text('Отсканируйте чек или добавьте продукт вручную', style: AppTypography.bodySmall),
+                        Text('Отсканируйте продукты или добавьте вручную', style: AppTypography.bodySmall),
                       ],
                     ),
                   ),
                 )
               : SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 80),
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 88),
                   sliver: SliverList(
                     delegate: SliverChildBuilderDelegate(
                       (context, index) {
@@ -181,7 +198,7 @@ class _FridgeScreenState extends ConsumerState<FridgeScreen> {
         decoration: BoxDecoration(
           color: isSelected ? AppColors.primary : AppColors.surface,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: isSelected ? AppColors.primary : AppColors.cardBorder),
+          // Zero borders as per design system rule
         ),
         child: Text(
           label,
@@ -253,7 +270,7 @@ class _FridgeScreenState extends ConsumerState<FridgeScreen> {
         decoration: BoxDecoration(
           color: AppColors.surface,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.cardBorder),
+          // Zero borders as per design system rule
         ),
         child: Row(
           children: [
@@ -302,8 +319,8 @@ class _FridgeScreenState extends ConsumerState<FridgeScreen> {
                 ScaffoldMessenger.of(context).hideCurrentSnackBar();
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text('${item.name} использован'),
-                    duration: const Duration(seconds: 5),
+                    content: Text('${item.name} приготовлен / использован!'),
+                    duration: const Duration(seconds: 4),
                     behavior: SnackBarBehavior.floating,
                     backgroundColor: AppColors.primary,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
