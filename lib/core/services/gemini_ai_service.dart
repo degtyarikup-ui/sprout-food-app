@@ -54,7 +54,7 @@ class GeminiAIService {
 
 ПРАВИЛА:
 1. Если на фото НЕТ кассового чека, списка покупок или продуктов питания (например, пустая комната, мебель, стена, улица, человек, мышка, ноутбук, случайный предмет), верни ТОЛЬКО пустой JSON-массив: []
-2. Если продукты или позиции чека найдены, распознай их и верни строго JSON массив объектов:
+2. Если продукты или позиции чека найдены, распознай их и верни строго JSON массив объектов с 2D координатами рамки [ymin, xmin, ymax, xmax] в масштабе от 0 до 1000:
 [
   {
     "name": "Томаты",
@@ -63,19 +63,20 @@ class GeminiAIService {
     "category": "Овощи и зелень",
     "shelfLifeDays": 3,
     "emoji": "🍅",
-    "estimatedPrice": 180.0
+    "estimatedPrice": 180.0,
+    "box2d": [200, 150, 450, 600]
   }
 ]
 3. Не пиши никакого текста, объяснений или markdown кроме чистого JSON массива.
 '''
         : '''
-Ты — компьютерное зрение для холодильника в приложении Sprout.
-Твоя задача — внимательно определить ВСЕ реальные продукты питания на фото.
+Ты — компьютерное зрение для умного холодильника в приложении Sprout.
+Твоя задача — найти ВСЕ реальные продукты питания на фото и указать их 2D координаты рамки [ymin, xmin, ymax, xmax] в масштабе от 0 до 1000.
 
 ПРАВИЛА:
 1. ВНИМАНИЕ: Если на фото НЕТ продуктов питания, открытого холодильника или еды (например: пустая комната, рабочий стол, мышка, ноутбук, мебель, стена, пол, человек, автомобиль, бытовые приборы), ты ОБЯЗАН вернуть ТОЛЬКО пустой JSON массив: []
 2. Не придумывай продукты, если их нет на изображении.
-3. Если продукты обнаружены, верни JSON массив:
+3. Если продукты обнаружены, верни JSON массив с координатами обнаруженного объекта:
 [
   {
     "name": "Молоко",
@@ -84,7 +85,8 @@ class GeminiAIService {
     "category": "Молочные продукты",
     "shelfLifeDays": 4,
     "emoji": "🥛",
-    "estimatedPrice": 95.0
+    "estimatedPrice": 95.0,
+    "box2d": [180, 240, 520, 480]
   }
 ]
 4. Только чистый JSON массив.
@@ -106,6 +108,11 @@ class GeminiAIService {
     final now = DateTime.now();
     return decoded.map((item) {
       final shelfDays = (item['shelfLifeDays'] as num?)?.toInt() ?? 4;
+      List<double>? box2d;
+      if (item['box2d'] != null && item['box2d'] is List) {
+        box2d = (item['box2d'] as List).map((n) => (n as num).toDouble()).toList();
+      }
+
       return ProductItem(
         name: item['name'] as String? ?? 'Продукт',
         amount: (item['amount'] as num?)?.toDouble() ?? 1.0,
@@ -115,6 +122,7 @@ class GeminiAIService {
         expiryDate: now.add(Duration(days: shelfDays)),
         emoji: item['emoji'] as String? ?? '🥑',
         estimatedPrice: (item['estimatedPrice'] as num?)?.toDouble() ?? 120.0,
+        box2d: box2d,
       );
     }).toList();
   }

@@ -12,6 +12,7 @@ class ProductItem {
   final String emoji;
   final bool isOpened;
   final double? estimatedPrice; // For money saving analytics
+  final List<double>? box2d; // [ymin, xmin, ymax, xmax] in range 0..1000 for visual AR detection
 
   ProductItem({
     String? id,
@@ -24,6 +25,7 @@ class ProductItem {
     this.emoji = '🥑',
     this.isOpened = false,
     this.estimatedPrice,
+    this.box2d,
   }) : id = id ?? const Uuid().v4();
 
   int get daysUntilExpiry {
@@ -57,6 +59,7 @@ class ProductItem {
     String? emoji,
     bool? isOpened,
     double? estimatedPrice,
+    List<double>? box2d,
   }) {
     return ProductItem(
       id: id ?? this.id,
@@ -69,6 +72,7 @@ class ProductItem {
       emoji: emoji ?? this.emoji,
       isOpened: isOpened ?? this.isOpened,
       estimatedPrice: estimatedPrice ?? this.estimatedPrice,
+      box2d: box2d ?? this.box2d,
     );
   }
 
@@ -84,6 +88,7 @@ class ProductItem {
       'emoji': emoji,
       'isOpened': isOpened,
       'estimatedPrice': estimatedPrice,
+      if (box2d != null) 'box2d': box2d,
     };
   }
 
@@ -99,6 +104,7 @@ class ProductItem {
       emoji: json['emoji'] as String? ?? '🥑',
       isOpened: json['isOpened'] as bool? ?? false,
       estimatedPrice: (json['estimatedPrice'] as num?)?.toDouble(),
+      box2d: (json['box2d'] as List<dynamic>?)?.map((e) => (e as num).toDouble()).toList(),
     );
   }
 }
