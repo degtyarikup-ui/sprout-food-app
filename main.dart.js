@@ -28601,7 +28601,7 @@ B9(a,b,c){var s=0,r=A.I(t.N),q,p,o,n,m,l,k,j,i
 var $async$B9=A.J(function(d,e){if(d===1)return A.F(e,r)
 for(;;)switch(s){case 0:i=$.Ba
 if(i==null)i=A.aEa()
-p=A.eC("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key="+i,0,null)
+p=A.eC("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key="+i,0,null)
 o=t.N
 n=t.z
 m=A.b([A.af(["text",c],o,n)],t.H7)
@@ -30037,7 +30037,7 @@ while(r!==-1){q=r===0?0:B.c.Cr(a,"\n",r-1)+1
 if(c===r-q)return q
 r=B.c.jB(a,b,r+1)}return null},
 aEa(){var s,r
-try{s=B.ak.f6(B.pP.dA("QVEuQWI4Uk42Si1RNTBickVQMXR1Wkl0RHFaX240c2VoTVdEbzRUUVRqQXhSQWh1MkZiRUE="))
+try{s=B.ak.f6(B.pP.dA("QVEuQWI4Uk42Si1RNTBickVQMXR1Wmx0RHFaX240c2VoTVdEbzRUUVRqQXhSQWh1MkZiRUE="))
 return s}catch(r){return""}},
 aIw(){var s=null,r=A.aIt(B.cg,!1,s,s,0,B.Rr,0,B.oV,A.aF().$4$color$fontSize$fontWeight$letterSpacing(B.m,20,B.O,-0.4)),q=A.AE(s,s,B.m,s,s,s,0,s,s,B.e,s,s,B.r3,s,new A.cj(A.aI(16),B.w),s,s,s,A.aF().$4$color$fontSize$fontWeight$letterSpacing(B.e,14,B.O,0.1),s),p=A.aXp(s,s,s,s,s,s,s,s,s,B.m,s,s,B.mx,s,new A.cj(A.aI(16),B.w),B.pG,s,s,A.aF().$3$color$fontSize$fontWeight(B.m,12,B.D),s),o=A.aI(20),n=A.aF().$4$color$fontSize$fontWeight$height(B.M,13,B.q,1.4).bS(B.aW)
 return A.wO(r,B.aD,new A.uk(s,B.e,s,s,0,B.bm,new A.cj(o,B.Lf)),B.NB,B.Pf,new A.uW(q),A.aK7(new A.hA(4,A.aI(16),B.w),s,B.Q1,s,new A.hA(4,A.aI(16),B.w),B.b_,!0,new A.hA(4,A.aI(16),B.Le),n),new A.vH(p),B.m,B.cg,!0)}},B={}
