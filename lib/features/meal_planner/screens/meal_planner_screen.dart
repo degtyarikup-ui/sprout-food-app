@@ -232,19 +232,21 @@ class MealPlannerScreen extends ConsumerWidget {
                 ? Image.asset(recipe.imageUrl, fit: BoxFit.cover)
                 : Image.network(recipe.imageUrl, fit: BoxFit.cover),
 
-            // Gradient
+            // Seamless Gradient: Darkening bottom ~20-25%
             Positioned.fill(
               child: DecoratedBox(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
+                    stops: const [0.0, 0.18, 0.58, 0.78, 1.0],
                     colors: [
                       Colors.black.withValues(alpha: 0.35),
                       Colors.transparent,
-                      Colors.black.withValues(alpha: 0.85),
+                      Colors.transparent,
+                      Colors.black.withValues(alpha: 0.45),
+                      Colors.black.withValues(alpha: 0.88),
                     ],
-                    stops: const [0.0, 0.45, 1.0],
                   ),
                 ),
               ),
@@ -257,11 +259,11 @@ class MealPlannerScreen extends ConsumerWidget {
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(20),
                 child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                  filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.4),
+                      color: Colors.black.withValues(alpha: 0.35),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
@@ -277,75 +279,72 @@ class MealPlannerScreen extends ConsumerWidget {
               ),
             ),
 
-            // Bottom Frosted Panel with Title and Start Button
+            // Bottom Text & Action: Directly on the seamless gradient without any hard box
             Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: ClipRRect(
-                borderRadius: const BorderRadius.vertical(bottom: Radius.circular(24)),
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-                  child: Container(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.35),
-                    ),
-                    child: Row(
+              left: 18,
+              right: 18,
+              bottom: 14,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                recipe.title,
-                                style: AppTypography.titleMedium.copyWith(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                '${recipe.totalTimeMinutes} мин • ${recipe.calories} ккал',
-                                style: const TextStyle(
-                                  color: Colors.white70,
-                                  fontSize: 11,
-                                ),
+                        Text(
+                          recipe.title,
+                          style: AppTypography.titleLarge.copyWith(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.w700,
+                            shadows: const [
+                              Shadow(
+                                color: Colors.black87,
+                                blurRadius: 8,
+                                offset: Offset(0, 1),
                               ),
                             ],
                           ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        const SizedBox(width: 12),
-                        SizedBox(
-                          height: 38,
-                          child: ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.white,
-                              foregroundColor: AppColors.primary,
-                              padding: const EdgeInsets.symmetric(horizontal: 16),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            onPressed: () {
-                              HapticFeedback.mediumImpact();
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => SmartCookingScreen(recipe: recipe),
-                                ),
-                              );
-                            },
-                            child: const Text('Готовить'),
+                        const SizedBox(height: 3),
+                        Text(
+                          '${recipe.totalTimeMinutes} мин • ${recipe.calories} ккал',
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
                       ],
                     ),
                   ),
-                ),
+                  const SizedBox(width: 12),
+                  SizedBox(
+                    height: 38,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        foregroundColor: AppColors.primary,
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      onPressed: () {
+                        HapticFeedback.mediumImpact();
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => SmartCookingScreen(recipe: recipe),
+                          ),
+                        );
+                      },
+                      child: const Text('Готовить'),
+                    ),
+                  ),
+                ],
               ),
             ),
           ],

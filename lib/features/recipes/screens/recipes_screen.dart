@@ -41,7 +41,7 @@ class RecipesScreen extends ConsumerWidget {
       ),
       body: CustomScrollView(
         slivers: [
-          // Category Pills Selector
+          // Category Selector Pills
           SliverToBoxAdapter(
             child: SizedBox(
               height: 48,
@@ -99,14 +99,14 @@ class RecipesScreen extends ConsumerWidget {
             ),
           ),
 
-          // Full-Bleed Food Photo Cards List
+          // Full-Bleed Food Photo Cards with Seamless Bottom Gradient
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 80),
             sliver: SliverList(
               delegate: SliverChildBuilderDelegate(
                 (context, index) {
                   final item = scoredRecipes[index];
-                  return _buildFullBleedRecipeCard(context, item, ref);
+                  return _buildSeamlessRecipeCard(context, item, ref);
                 },
                 childCount: scoredRecipes.length,
               ),
@@ -117,7 +117,7 @@ class RecipesScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildFullBleedRecipeCard(BuildContext context, RecipeWithMatchScore item, WidgetRef ref) {
+  Widget _buildSeamlessRecipeCard(BuildContext context, RecipeWithMatchScore item, WidgetRef ref) {
     final recipe = item.recipe;
     final matchPercent = item.matchPercentage.round();
 
@@ -131,7 +131,7 @@ class RecipesScreen extends ConsumerWidget {
     }
 
     return Container(
-      height: 250,
+      height: 260,
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
         color: AppColors.surfaceDark,
@@ -151,7 +151,7 @@ class RecipesScreen extends ConsumerWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            // Full-Bleed High Quality Food Photography
+            // Full-Bleed High Definition Food Photography
             recipe.imageUrl.startsWith('assets/')
                 ? Image.asset(recipe.imageUrl, fit: BoxFit.cover)
                 : Image.network(
@@ -165,25 +165,27 @@ class RecipesScreen extends ConsumerWidget {
                     ),
                   ),
 
-            // Subtle Vignette Gradient
+            // Smooth Seamless Gradient: Transparent everywhere, darkening only at the bottom ~20-25%
             Positioned.fill(
               child: DecoratedBox(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
+                    stops: const [0.0, 0.18, 0.58, 0.80, 1.0],
                     colors: [
-                      Colors.black.withValues(alpha: 0.35),
+                      Colors.black.withValues(alpha: 0.35), // subtle top shadow for badges
                       Colors.transparent,
-                      Colors.black.withValues(alpha: 0.85),
+                      Colors.transparent,
+                      Colors.black.withValues(alpha: 0.45),
+                      Colors.black.withValues(alpha: 0.88), // seamless bottom gradient without boxes
                     ],
-                    stops: const [0.0, 0.45, 1.0],
                   ),
                 ),
               ),
             ),
 
-            // Top Badges
+            // Top Badges (Time/Calories Capsule + Favorite)
             Positioned(
               top: 14,
               left: 14,
@@ -195,11 +197,11 @@ class RecipesScreen extends ConsumerWidget {
                   ClipRRect(
                     borderRadius: BorderRadius.circular(20),
                     child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                      filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.4),
+                          color: Colors.black.withValues(alpha: 0.35),
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
@@ -218,7 +220,7 @@ class RecipesScreen extends ConsumerWidget {
                   ClipRRect(
                     borderRadius: BorderRadius.circular(20),
                     child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                      filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
                       child: GestureDetector(
                         onTap: () {
                           HapticFeedback.lightImpact();
@@ -228,7 +230,7 @@ class RecipesScreen extends ConsumerWidget {
                           width: 38,
                           height: 38,
                           decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.4),
+                            color: Colors.black.withValues(alpha: 0.35),
                             shape: BoxShape.circle,
                           ),
                           child: Icon(
@@ -244,66 +246,61 @@ class RecipesScreen extends ConsumerWidget {
               ),
             ),
 
-            // Bottom Frosted Title & Match Bar (Clean Visual Editorial)
+            // Bottom Text Layer: Directly on the seamless gradient without any hard boxes
             Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: ClipRRect(
-                borderRadius: const BorderRadius.vertical(bottom: Radius.circular(24)),
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-                  child: Container(
-                    padding: const EdgeInsets.fromLTRB(18, 14, 18, 16),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.35),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          recipe.title,
-                          style: AppTypography.titleLarge.copyWith(
-                            color: Colors.white,
-                            fontSize: 20,
-                            fontWeight: FontWeight.w700,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 6),
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                              decoration: BoxDecoration(
-                                color: matchPercent == 100
-                                    ? Colors.white.withValues(alpha: 0.2)
-                                    : Colors.white.withValues(alpha: 0.12),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Text(
-                                matchText,
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ),
-                            const Spacer(),
-                            const Icon(
-                              Icons.arrow_forward_rounded,
-                              size: 16,
-                              color: Colors.white70,
-                            ),
-                          ],
+              left: 18,
+              right: 18,
+              bottom: 16,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    recipe.title,
+                    style: AppTypography.titleLarge.copyWith(
+                      color: Colors.white,
+                      fontSize: 21,
+                      fontWeight: FontWeight.w700,
+                      shadows: const [
+                        Shadow(
+                          color: Colors.black87,
+                          blurRadius: 8,
+                          offset: Offset(0, 1),
                         ),
                       ],
                     ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: matchPercent == 100
+                              ? Colors.white.withValues(alpha: 0.22)
+                              : Colors.white.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          matchText,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      const Spacer(),
+                      const Icon(
+                        Icons.arrow_forward_rounded,
+                        size: 18,
+                        color: Colors.white70,
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
           ],
