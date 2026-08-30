@@ -234,10 +234,9 @@ class MealPlannerNotifier extends StateNotifier<List<MealPlanDay>> {
     // Sync to Cloud if part of a family
     try {
       final family = _ref.read(familyProvider);
-      if (family != null && family.cloudId != null) {
+      if (family != null && family.cloudId != null && family.cloudId!.isNotEmpty) {
         await FamilyCloudService.updateCloudData(
           family.cloudId!,
-          family: family,
           mealPlan: state,
         );
       }

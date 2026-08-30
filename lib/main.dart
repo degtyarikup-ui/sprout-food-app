@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'core/services/telegram_web_app_service.dart';
 import 'core/theme/app_theme.dart';
+import 'features/family/providers/family_provider.dart';
 import 'features/navigation/main_scaffold.dart';
 import 'features/onboarding/providers/onboarding_provider.dart';
 import 'features/onboarding/screens/onboarding_quiz_screen.dart';
@@ -37,6 +38,8 @@ class SproutApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Keep familyProvider active from the root so auto-sync is always live
+    ref.watch(familyProvider);
     final hasCompletedOnboarding = ref.watch(onboardingProvider);
 
     return MaterialApp(

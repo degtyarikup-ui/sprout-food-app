@@ -171,19 +171,29 @@ class FamilyModals {
                   final code = controller.text.trim();
                   if (code.isEmpty) return;
 
-                  await ref.read(familyProvider.notifier).joinFamilyByCode(
+                  final success = await ref.read(familyProvider.notifier).joinFamilyByCode(
                         code,
                         currentUser: user,
                       );
                   if (ctx.mounted) {
                     Navigator.pop(ctx);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        backgroundColor: AppColors.primary,
-                        behavior: SnackBarBehavior.floating,
-                        content: Text('Вы успешно присоединились к семье! Холодильник и план теперь общие.'),
-                      ),
-                    );
+                    if (success) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          backgroundColor: AppColors.primary,
+                          behavior: SnackBarBehavior.floating,
+                          content: Text('Вы успешно присоединились к семье! Холодильник и план теперь общие.'),
+                        ),
+                      );
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          backgroundColor: Colors.redAccent,
+                          behavior: SnackBarBehavior.floating,
+                          content: Text('Не удалось найти семью по коду. Проверьте код или ссылку.'),
+                        ),
+                      );
+                    }
                   }
                 },
                 child: const Text('Присоединиться', style: TextStyle(fontWeight: FontWeight.w800)),
@@ -199,6 +209,8 @@ class FamilyModals {
   static void showInvitePartner(BuildContext context, WidgetRef ref) {
     final family = ref.read(familyProvider);
     if (family == null) return;
+
+    final effectiveCode = (family.cloudId != null && family.cloudId!.isNotEmpty) ? family.cloudId! : family.inviteCode;
 
     showModalBottomSheet(
       context: context,
@@ -251,30 +263,34 @@ class FamilyModals {
               ),
               child: Row(
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'КОД ДЛЯ ВХОДА',
-                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: AppColors.primary),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        family.inviteCode,
-                        style: const TextStyle(
-                          fontSize: 26,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 2,
-                          color: AppColors.primary,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'КОД ДЛЯ ВХОДА',
+                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: AppColors.primary),
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 4),
+                        Text(
+                          effectiveCode,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 1,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                  const Spacer(),
+                  const SizedBox(width: 8),
                   GestureDetector(
                     onTap: () {
                       HapticFeedback.selectionClick();
-                      Clipboard.setData(ClipboardData(text: family.inviteCode));
+                      Clipboard.setData(ClipboardData(text: effectiveCode));
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           backgroundColor: AppColors.primary,

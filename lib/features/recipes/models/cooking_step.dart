@@ -59,11 +59,12 @@ class CookingStep {
     };
   }
 
-  factory CookingStep.fromJson(Map<String, dynamic> json) {
+  factory CookingStep.fromJson(Map<dynamic, dynamic> rawJson) {
+    final json = Map<String, dynamic>.from(rawJson);
     return CookingStep(
-      stepNumber: json['stepNumber'] as int,
-      title: json['title'] as String,
-      instruction: json['instruction'] as String,
+      stepNumber: (json['stepNumber'] as num?)?.toInt() ?? 1,
+      title: json['title'] as String? ?? '',
+      instruction: json['instruction'] as String? ?? '',
       timerDurationSeconds: json['timerDurationSeconds'] as int?,
       parallelTaskHint: json['parallelTaskHint'] as String?,
       tip: json['tip'] as String?,

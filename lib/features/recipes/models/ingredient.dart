@@ -44,11 +44,12 @@ class Ingredient {
     };
   }
 
-  factory Ingredient.fromJson(Map<String, dynamic> json) {
+  factory Ingredient.fromJson(Map<dynamic, dynamic> rawJson) {
+    final json = Map<String, dynamic>.from(rawJson);
     return Ingredient(
-      name: json['name'] as String,
-      amount: (json['amount'] as num).toDouble(),
-      unit: json['unit'] as String,
+      name: json['name'] as String? ?? '',
+      amount: (json['amount'] as num?)?.toDouble() ?? 0,
+      unit: json['unit'] as String? ?? '',
       notes: json['notes'] as String?,
       isOptional: json['isOptional'] as bool? ?? false,
       substitute: json['substitute'] as String?,

@@ -130,26 +130,29 @@ class Recipe {
     };
   }
 
-  factory Recipe.fromJson(Map<String, dynamic> json) {
+  factory Recipe.fromJson(Map<dynamic, dynamic> rawJson) {
+    final json = Map<String, dynamic>.from(rawJson);
     return Recipe(
       id: json['id'] as String?,
-      title: json['title'] as String,
-      description: json['description'] as String,
-      category: json['category'] as String,
-      tags: (json['tags'] as List<dynamic>).map((e) => e as String).toList(),
-      prepTimeMinutes: json['prepTimeMinutes'] as int,
-      cookTimeMinutes: json['cookTimeMinutes'] as int,
-      defaultServings: json['defaultServings'] as int,
-      calories: json['calories'] as int,
-      proteinGrams: json['proteinGrams'] as int,
-      fatGrams: json['fatGrams'] as int,
-      carbsGrams: json['carbsGrams'] as int,
-      ingredients: (json['ingredients'] as List<dynamic>)
-          .map((e) => Ingredient.fromJson(e as Map<String, dynamic>))
-          .toList(),
-      steps: (json['steps'] as List<dynamic>)
-          .map((e) => CookingStep.fromJson(e as Map<String, dynamic>))
-          .toList(),
+      title: json['title'] as String? ?? '',
+      description: json['description'] as String? ?? '',
+      category: json['category'] as String? ?? 'Обед',
+      tags: (json['tags'] as List<dynamic>?)?.map((e) => e as String).toList() ?? [],
+      prepTimeMinutes: (json['prepTimeMinutes'] as num?)?.toInt() ?? 0,
+      cookTimeMinutes: (json['cookTimeMinutes'] as num?)?.toInt() ?? 0,
+      defaultServings: (json['defaultServings'] as num?)?.toInt() ?? 2,
+      calories: (json['calories'] as num?)?.toInt() ?? 0,
+      proteinGrams: (json['proteinGrams'] as num?)?.toInt() ?? 0,
+      fatGrams: (json['fatGrams'] as num?)?.toInt() ?? 0,
+      carbsGrams: (json['carbsGrams'] as num?)?.toInt() ?? 0,
+      ingredients: (json['ingredients'] as List<dynamic>?)
+              ?.map((e) => Ingredient.fromJson(e as Map))
+              .toList() ??
+          [],
+      steps: (json['steps'] as List<dynamic>?)
+              ?.map((e) => CookingStep.fromJson(e as Map))
+              .toList() ??
+          [],
       imageUrl: json['imageUrl'] as String? ?? 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=800',
       videoUrl: json['videoUrl'] as String?,
       source: json['source'] as String? ?? 'Шеф-база',

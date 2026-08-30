@@ -120,10 +120,9 @@ class FridgeNotifier extends StateNotifier<List<ProductItem>> {
     // Sync to Cloud if part of a family
     try {
       final family = _ref.read(familyProvider);
-      if (family != null && family.cloudId != null) {
+      if (family != null && family.cloudId != null && family.cloudId!.isNotEmpty) {
         await FamilyCloudService.updateCloudData(
           family.cloudId!,
-          family: family,
           fridge: state,
         );
       }

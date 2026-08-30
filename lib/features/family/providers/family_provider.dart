@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:math';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/services/telegram_web_app_service.dart';
@@ -16,7 +15,7 @@ import '../models/family_group.dart';
 import '../services/family_cloud_service.dart';
 
 class FamilyNotifier extends StateNotifier<FamilyGroup?> {
-  static const _kFamilyKey = 'sprout_family_group_v4';
+  static const _kFamilyKey = 'sprout_family_group_v3';
   final Ref _ref;
   Timer? _autoSyncTimer;
 
@@ -42,22 +41,26 @@ class FamilyNotifier extends StateNotifier<FamilyGroup?> {
             mealPlan: currentMealPlan,
           );
           if (cloudId != null) {
-            state = state!.copyWith(cloudId: cloudId);
+            state = state!.copyWith(cloudId: cloudId, inviteCode: cloudId);
             await _persist(state!);
           }
-        } catch (_) {}
+        } catch (e) {
+          // ignore: avoid_print
+          print('[FamilyNotifier] _init create in cloud error: $e');
+        }
       }
 
       await refreshFromCloud();
       _startAutoSync();
     }
 
-    // 2. Check if launched via Telegram invite link (e.g. start_param = join_ff808181...)
+    // 2. Check if launched via Telegram invite link (e.g. start_param = join_ff808181... or startapp=join_...)
     final startParam = TelegramWebAppService.getStartParam();
-    if (startParam != null && startParam.startsWith('join_')) {
-      final codeOrCloudId = startParam.replaceAll('join_', '').trim();
-      final user = _ref.read(authProvider);
-      await joinFamilyByCode(codeOrCloudId, currentUser: user);
+    if (startParam != null && startParam.trim().isNotEmpty) {
+      final cleanCode = FamilyCloudService.cleanCloudId(startParam);
+      if (cleanCode.isNotEmpty && (state == null || state!.cloudId != cleanCode)) {
+        await joinFamilyByCode(cleanCode);
+      }
     }
   }
 
@@ -75,24 +78,33 @@ class FamilyNotifier extends StateNotifier<FamilyGroup?> {
     try {
       final fullData = await FamilyCloudService.fetchFullCloudData(state!.cloudId!);
       if (fullData != null) {
+        // 1. Sync family group & members
         if (fullData.containsKey('family')) {
           final cloudFamily = fullData['family'] as FamilyGroup;
-          // Update state if members or names changed
           if (cloudFamily.members.length != state!.members.length ||
               cloudFamily.name != state!.name ||
               _membersChanged(cloudFamily.members, state!.members)) {
-            state = cloudFamily.copyWith(cloudId: state!.cloudId);
+            state = cloudFamily.copyWith(
+              cloudId: state!.cloudId,
+              inviteCode: state!.cloudId,
+            );
             await _persist(state!);
           }
         }
+
+        // 2. Sync fridge
         if (fullData.containsKey('fridge')) {
           final cloudFridge = fullData['fridge'] as List<ProductItem>;
           _ref.read(fridgeProvider.notifier).setProductsFromCloud(cloudFridge);
         }
+
+        // 3. Sync grocery
         if (fullData.containsKey('grocery')) {
           final cloudGrocery = fullData['grocery'] as List<GroceryItem>;
           _ref.read(groceryProvider.notifier).setGroceryFromCloud(cloudGrocery);
         }
+
+        // 4. Sync meal plan
         if (fullData.containsKey('mealPlan')) {
           final cloudMealPlan = fullData['mealPlan'] as List<MealPlanDay>;
           if (cloudMealPlan.isNotEmpty) {
@@ -100,13 +112,18 @@ class FamilyNotifier extends StateNotifier<FamilyGroup?> {
           }
         }
       }
-    } catch (_) {}
+    } catch (e) {
+      // ignore: avoid_print
+      print('[FamilyNotifier] refreshFromCloud error: $e');
+    }
   }
 
   bool _membersChanged(List<FamilyMember> a, List<FamilyMember> b) {
     if (a.length != b.length) return true;
     for (int i = 0; i < a.length; i++) {
-      if (a[i].id != b[i].id || a[i].name != b[i].name || a[i].avatarUrl != b[i].avatarUrl) {
+      if (a[i].id != b[i].id ||
+          a[i].name != b[i].name ||
+          a[i].avatarUrl != b[i].avatarUrl) {
         return true;
       }
     }
@@ -116,36 +133,47 @@ class FamilyNotifier extends StateNotifier<FamilyGroup?> {
   Future<void> _loadFromStorage() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final raw = prefs.getString(_kFamilyKey);
-      if (raw != null) {
-        final decoded = jsonDecode(raw) as Map<dynamic, dynamic>;
-        state = FamilyGroup.fromJson(decoded);
+      for (final key in [
+        'sprout_family_group_v3',
+        'sprout_family_group_v4',
+        'sprout_family_group_v2',
+        'sprout_family_group_v1'
+      ]) {
+        final raw = prefs.getString(key);
+        if (raw != null && raw.isNotEmpty) {
+          final decoded = jsonDecode(raw) as Map<dynamic, dynamic>;
+          state = FamilyGroup.fromJson(decoded);
+          if (state != null) {
+            await _persist(state!);
+            break;
+          }
+        }
       }
-    } catch (_) {}
-  }
-
-  String _generateInviteCode() {
-    final random = Random();
-    final number = 100 + random.nextInt(900);
-    return 'SPROUT-$number';
+    } catch (e) {
+      // ignore: avoid_print
+      print('[FamilyNotifier] _loadFromStorage error: $e');
+    }
   }
 
   Future<FamilyGroup> createFamily(
     String familyName, {
     AuthUser? currentUser,
   }) async {
-    final creatorName = currentUser?.displayName ?? 'Сергей';
-    final creatorAvatar = currentUser?.photoUrl;
-    final code = _generateInviteCode();
+    final authUser = currentUser ?? _ref.read(authProvider);
+    final tgUser = TelegramWebAppService.getTelegramUser();
+
+    final creatorName = authUser?.displayName ?? tgUser?.fullName ?? 'Сергей';
+    final creatorAvatar = authUser?.photoUrl ?? tgUser?.photoUrl;
+    final creatorId = authUser?.id ?? (tgUser != null ? 'tg_${tgUser.id}' : 'creator_user_1');
 
     var family = FamilyGroup(
       id: 'fam_${DateTime.now().millisecondsSinceEpoch}',
       name: familyName.trim().isNotEmpty ? familyName.trim() : 'Семья $creatorName',
-      inviteCode: code,
+      inviteCode: '',
       createdAt: DateTime.now(),
       members: [
         FamilyMember(
-          id: currentUser?.id ?? 'creator_user_1',
+          id: creatorId,
           name: creatorName,
           avatarUrl: creatorAvatar,
           role: 'Создатель',
@@ -168,7 +196,10 @@ class FamilyNotifier extends StateNotifier<FamilyGroup?> {
     );
 
     if (cloudId != null) {
-      family = family.copyWith(cloudId: cloudId);
+      family = family.copyWith(cloudId: cloudId, inviteCode: cloudId);
+    } else {
+      final fallbackId = 'fam_${DateTime.now().millisecondsSinceEpoch}';
+      family = family.copyWith(cloudId: fallbackId, inviteCode: fallbackId);
     }
 
     state = family;
@@ -181,18 +212,18 @@ class FamilyNotifier extends StateNotifier<FamilyGroup?> {
     String codeOrLink, {
     AuthUser? currentUser,
   }) async {
-    String code = codeOrLink.trim();
-    if (code.contains('join_')) {
-      code = code.split('join_').last.trim();
-    } else if (code.contains('/join/')) {
-      code = code.split('/join/').last.trim();
-    }
+    final code = FamilyCloudService.cleanCloudId(codeOrLink);
+    if (code.isEmpty) return false;
 
-    final joinerName = currentUser?.displayName ?? 'Партнер';
-    final joinerAvatar = currentUser?.photoUrl;
+    final authUser = currentUser ?? _ref.read(authProvider);
+    final tgUser = TelegramWebAppService.getTelegramUser();
+
+    final joinerName = authUser?.displayName ?? tgUser?.fullName ?? 'Партнер';
+    final joinerAvatar = authUser?.photoUrl ?? tgUser?.photoUrl;
+    final joinerId = authUser?.id ?? (tgUser != null ? 'tg_${tgUser.id}' : 'joined_member_${DateTime.now().millisecondsSinceEpoch}');
 
     final joinerMember = FamilyMember(
-      id: currentUser?.id ?? 'joined_member_${DateTime.now().millisecondsSinceEpoch}',
+      id: joinerId,
       name: joinerName,
       avatarUrl: joinerAvatar,
       role: 'Партнер',
@@ -200,10 +231,10 @@ class FamilyNotifier extends StateNotifier<FamilyGroup?> {
       joinedAt: DateTime.now(),
     );
 
-    // Always attempt cloud join first
+    // Cloud join
     final cloudFamily = await FamilyCloudService.joinFamilyInCloud(code, joinerMember);
     if (cloudFamily != null) {
-      final finalFamily = cloudFamily.copyWith(cloudId: code);
+      final finalFamily = cloudFamily.copyWith(cloudId: code, inviteCode: code);
       state = finalFamily;
       await _persist(finalFamily);
 
@@ -224,32 +255,7 @@ class FamilyNotifier extends StateNotifier<FamilyGroup?> {
       return true;
     }
 
-    // Local fallback if offline
-    final updatedMembers = [
-      FamilyMember(
-        id: 'creator_partner_1',
-        name: 'Сергей Дегтярик',
-        avatarUrl: null,
-        role: 'Создатель',
-        isOnline: true,
-        joinedAt: DateTime.now().subtract(const Duration(days: 2)),
-      ),
-      joinerMember,
-    ];
-
-    final joinedFamily = FamilyGroup(
-      id: 'fam_shared_882',
-      name: 'Наша семья',
-      inviteCode: code.isNotEmpty ? code : 'SPROUT-882',
-      cloudId: code.length > 5 ? code : null,
-      createdAt: DateTime.now().subtract(const Duration(days: 2)),
-      members: updatedMembers,
-    );
-
-    state = joinedFamily;
-    await _persist(joinedFamily);
-    _startAutoSync();
-    return true;
+    return false;
   }
 
   Future<void> addDemoPartner() async {
@@ -282,7 +288,14 @@ class FamilyNotifier extends StateNotifier<FamilyGroup?> {
     state = null;
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.remove(_kFamilyKey);
+      for (final key in [
+        'sprout_family_group_v3',
+        'sprout_family_group_v4',
+        'sprout_family_group_v2',
+        'sprout_family_group_v1'
+      ]) {
+        await prefs.remove(key);
+      }
     } catch (_) {}
   }
 

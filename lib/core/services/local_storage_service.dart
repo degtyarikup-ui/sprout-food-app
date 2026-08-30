@@ -24,7 +24,7 @@ class LocalStorageService {
     if (raw == null) return null;
     try {
       final List<dynamic> decoded = jsonDecode(raw);
-      return decoded.map((e) => ProductItem.fromJson(e as Map<String, dynamic>)).toList();
+      return decoded.map((e) => ProductItem.fromJson(e as Map)).toList();
     } catch (_) {
       return null;
     }
@@ -42,7 +42,7 @@ class LocalStorageService {
     if (raw == null) return null;
     try {
       final List<dynamic> decoded = jsonDecode(raw);
-      return decoded.map((e) => GroceryItem.fromJson(e as Map<String, dynamic>)).toList();
+      return decoded.map((e) => GroceryItem.fromJson(e as Map)).toList();
     } catch (_) {
       return null;
     }
@@ -60,7 +60,7 @@ class LocalStorageService {
     if (raw == null) return null;
     try {
       final List<dynamic> decoded = jsonDecode(raw);
-      return decoded.map((e) => MealPlanDay.fromJson(e as Map<String, dynamic>)).toList();
+      return decoded.map((e) => MealPlanDay.fromJson(e as Map)).toList();
     } catch (_) {
       return null;
     }
@@ -76,7 +76,7 @@ class LocalStorageService {
     final raw = prefs.getString(_kEcoStatsKey);
     if (raw == null) return null;
     try {
-      return EcoSavingsStat.fromJson(jsonDecode(raw) as Map<String, dynamic>);
+      return EcoSavingsStat.fromJson(Map<String, dynamic>.from(jsonDecode(raw) as Map));
     } catch (_) {
       return null;
     }
