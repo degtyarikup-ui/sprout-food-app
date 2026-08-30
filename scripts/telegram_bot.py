@@ -25,7 +25,10 @@ def load_env():
 
 load_env()
 
-BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "8826180004:AAH6mc4XMueu8qmsTX6rrzyLcvKkpsAtftU")
+BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
+if not BOT_TOKEN:
+    print("Error: TELEGRAM_BOT_TOKEN environment variable or .env file is required.", file=sys.stderr)
+    sys.exit(1)
 WEB_APP_URL = os.environ.get("WEB_APP_URL", "https://degtyarikup-ui.github.io/sprout-food-app/")
 API_BASE = f"https://api.telegram.org/bot{BOT_TOKEN}"
 
