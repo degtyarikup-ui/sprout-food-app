@@ -14,67 +14,11 @@ class GroceryNotifier extends StateNotifier<List<GroceryItem>> {
 
   Future<void> _initList() async {
     final saved = await LocalStorageService.loadGroceryItems();
-    if (saved != null && saved.isNotEmpty) {
+    if (saved != null) {
       state = saved;
     } else {
-      // Default initial grocery list calculated from missing ingredients in meal plan
-      state = [
-        GroceryItem(
-          name: 'Филе лосося свежее',
-          amount: 250,
-          unit: 'г',
-          department: 'Мясо и рыба',
-          recipeOriginTitle: 'Боул с лососем и киноа',
-          estimatedCost: 380,
-          emoji: '🐟',
-        ),
-        GroceryItem(
-          name: 'Киноа белая',
-          amount: 1,
-          unit: 'уп',
-          department: 'Бакалея',
-          recipeOriginTitle: 'Боул с лососем и киноа',
-          estimatedCost: 190,
-          emoji: '🌾',
-        ),
-        GroceryItem(
-          name: 'Сливки 20%',
-          amount: 200,
-          unit: 'мл',
-          department: 'Молочные продукты',
-          recipeOriginTitle: 'Паста с курицей и шпинатом',
-          estimatedCost: 110,
-          emoji: '🥛',
-        ),
-        GroceryItem(
-          name: 'Вяленые томаты в масле',
-          amount: 1,
-          unit: 'банка',
-          department: 'Бакалея',
-          recipeOriginTitle: 'Паста с курицей и шпинатом',
-          estimatedCost: 260,
-          emoji: '🥫',
-        ),
-        GroceryItem(
-          name: 'Семена чиа',
-          amount: 100,
-          unit: 'г',
-          department: 'Бакалея',
-          recipeOriginTitle: 'Чиа-пудинг с манго',
-          estimatedCost: 140,
-          emoji: '🌱',
-        ),
-        GroceryItem(
-          name: 'Кокосовое молоко',
-          amount: 400,
-          unit: 'мл',
-          department: 'Молочные продукты',
-          recipeOriginTitle: 'Чиа-пудинг с манго',
-          estimatedCost: 180,
-          emoji: '🥥',
-        ),
-      ];
-      _persist();
+      state = [];
+      await _persist();
     }
   }
 

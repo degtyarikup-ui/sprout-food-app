@@ -80,6 +80,45 @@ class _FridgeScreenState extends ConsumerState<FridgeScreen> {
     );
   }
 
+  // ── Clear Entire Fridge Confirmation ──────────────────────────────────────
+  void _confirmClearFridge() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: const Text('Очистить холодильник?'),
+        content: const Text('Все продукты будут удалены из списка запасов.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Отмена', style: TextStyle(color: AppColors.textSecondary)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.statusUrgent,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              elevation: 0,
+            ),
+            onPressed: () {
+              ref.read(fridgeProvider.notifier).clearAll();
+              Navigator.pop(ctx);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  backgroundColor: AppColors.surface,
+                  behavior: SnackBarBehavior.floating,
+                  content: Text('Холодильник полностью очищен'),
+                ),
+              );
+            },
+            child: const Text('Очистить', style: TextStyle(fontWeight: FontWeight.w700)),
+          ),
+        ],
+      ),
+    );
+  }
+
   // ── Add Custom Grocery Item ───────────────────────────────────────────────
   void _showAddGroceryDialog() {
     final nameController = TextEditingController();
@@ -268,7 +307,16 @@ class _FridgeScreenState extends ConsumerState<FridgeScreen> {
           ],
         ),
         actions: [
-          if (_selectedTab == 0)
+          if (_selectedTab == 0) ...[
+            if (fridgeItems.isNotEmpty)
+              IconButton(
+                icon: const Icon(Icons.delete_sweep_rounded, size: 22, color: AppColors.textTertiary),
+                tooltip: 'Очистить холодильник',
+                onPressed: () {
+                  HapticFeedback.lightImpact();
+                  _confirmClearFridge();
+                },
+              ),
             IconButton(
               icon: const Icon(Icons.tune_rounded, size: 22),
               tooltip: 'Настройки питания и порций',
@@ -281,7 +329,8 @@ class _FridgeScreenState extends ConsumerState<FridgeScreen> {
                   builder: (context) => const PreferencesModal(),
                 );
               },
-            )
+            ),
+          ]
           else ...[
             IconButton(
               icon: const Icon(Icons.sync_rounded, size: 22),
