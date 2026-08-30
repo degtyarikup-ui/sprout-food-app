@@ -342,20 +342,20 @@ class FamilyModals {
             ),
             const SizedBox(height: 20),
 
-            // Add demo partner button (for quick live testing)
+            // Add test partner button
             if (family.members.length < 2)
               SizedBox(
                 width: double.infinity,
                 height: 48,
                 child: ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: AppColors.primaryForeground,
+                    backgroundColor: AppColors.surfaceMuted,
+                    foregroundColor: AppColors.textPrimary,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                     elevation: 0,
                   ),
-                  icon: const Icon(Icons.person_add_rounded, size: 18),
-                  label: const Text('Присоединить партнера (Демо)', style: TextStyle(fontWeight: FontWeight.w700)),
+                  icon: const Icon(Icons.person_add_rounded, size: 18, color: AppColors.primary),
+                  label: const Text('Присоединить партнера (Тест)', style: TextStyle(fontWeight: FontWeight.w700)),
                   onPressed: () async {
                     HapticFeedback.heavyImpact();
                     await ref.read(familyProvider.notifier).addDemoPartner();
@@ -365,7 +365,7 @@ class FamilyModals {
                         const SnackBar(
                           backgroundColor: AppColors.primary,
                           behavior: SnackBarBehavior.floating,
-                          content: Text('Партнер Анна присоединилась к семье!'),
+                          content: Text('Второй участник добавлен в семью!'),
                         ),
                       );
                     }

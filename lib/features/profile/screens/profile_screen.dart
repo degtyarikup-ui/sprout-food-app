@@ -294,17 +294,34 @@ class ProfileScreen extends ConsumerWidget {
                                 ],
                               ),
                             ),
+                            IconButton(
+                              icon: const Icon(Icons.refresh_rounded, size: 18, color: AppColors.textTertiary),
+                              tooltip: 'Обновить семью',
+                              onPressed: () async {
+                                HapticFeedback.lightImpact();
+                                await ref.read(familyProvider.notifier).refreshFromCloud();
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Данные семьи синхронизированы'),
+                                      backgroundColor: AppColors.primary,
+                                      duration: Duration(seconds: 2),
+                                    ),
+                                  );
+                                }
+                              },
+                            ),
                           ],
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 14),
 
-                        // Members list with avatars
+                        // Compact Members list without roles
                         Wrap(
-                          spacing: 12,
-                          runSpacing: 10,
+                          spacing: 8,
+                          runSpacing: 8,
                           children: family.members.map((member) {
                             return Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                               decoration: BoxDecoration(
                                 color: AppColors.surfaceMuted,
                                 borderRadius: BorderRadius.circular(16),
@@ -315,19 +332,13 @@ class ProfileScreen extends ConsumerWidget {
                                   AppAvatar(
                                     photoUrl: member.avatarUrl,
                                     name: member.name,
-                                    size: 26,
-                                    showOnlineBadge: true,
-                                    isOnline: member.isOnline,
+                                    size: 22,
+                                    showOnlineBadge: false,
                                   ),
-                                  const SizedBox(width: 8),
+                                  const SizedBox(width: 6),
                                   Text(
                                     member.name,
                                     style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    '(${member.role})',
-                                    style: const TextStyle(fontSize: 10, color: AppColors.textTertiary),
                                   ),
                                 ],
                               ),

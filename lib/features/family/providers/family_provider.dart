@@ -6,24 +6,42 @@ import '../../../core/services/telegram_web_app_service.dart';
 import '../../profile/models/auth_user.dart';
 import '../../profile/providers/auth_provider.dart';
 import '../models/family_group.dart';
+import '../services/family_cloud_service.dart';
 
 class FamilyNotifier extends StateNotifier<FamilyGroup?> {
-  static const _kFamilyKey = 'sprout_family_group_v1';
+  static const _kFamilyKey = 'sprout_family_group_v2';
+  final Ref _ref;
 
-  FamilyNotifier(Ref ref) : super(null) {
-    _init(ref);
+  FamilyNotifier(this._ref) : super(null) {
+    _init();
   }
 
-  Future<void> _init(Ref ref) async {
+  Future<void> _init() async {
     await _loadFromStorage();
 
-    // Check if launched via Telegram invite link (e.g. start_param = join_SPROUT-882)
+    // 1. If we have a cloudId, refresh from cloud
+    if (state != null && state!.cloudId != null) {
+      await refreshFromCloud();
+    }
+
+    // 2. Check if launched via Telegram invite link (e.g. start_param = join_ff808181...)
     final startParam = TelegramWebAppService.getStartParam();
     if (startParam != null && startParam.startsWith('join_')) {
-      final code = startParam.replaceAll('join_', '').trim();
-      final user = ref.read(authProvider);
-      await joinFamilyByCode(code, currentUser: user);
+      final codeOrCloudId = startParam.replaceAll('join_', '').trim();
+      final user = _ref.read(authProvider);
+      await joinFamilyByCode(codeOrCloudId, currentUser: user);
     }
+  }
+
+  Future<void> refreshFromCloud() async {
+    if (state == null || state!.cloudId == null) return;
+    try {
+      final cloudFamily = await FamilyCloudService.fetchFamilyFromCloud(state!.cloudId!);
+      if (cloudFamily != null) {
+        state = cloudFamily.copyWith(cloudId: state!.cloudId);
+        await _persist(state!);
+      }
+    } catch (_) {}
   }
 
   Future<void> _loadFromStorage() async {
@@ -51,7 +69,7 @@ class FamilyNotifier extends StateNotifier<FamilyGroup?> {
     final creatorAvatar = currentUser?.photoUrl;
     final code = _generateInviteCode();
 
-    final family = FamilyGroup(
+    var family = FamilyGroup(
       id: 'fam_${DateTime.now().millisecondsSinceEpoch}',
       name: familyName.trim().isNotEmpty ? familyName.trim() : 'Семья $creatorName',
       inviteCode: code,
@@ -67,6 +85,12 @@ class FamilyNotifier extends StateNotifier<FamilyGroup?> {
         ),
       ],
     );
+
+    // Save to Cloud
+    final cloudId = await FamilyCloudService.createFamilyInCloud(family);
+    if (cloudId != null) {
+      family = family.copyWith(cloudId: cloudId);
+    }
 
     state = family;
     await _persist(family);
@@ -84,35 +108,48 @@ class FamilyNotifier extends StateNotifier<FamilyGroup?> {
     } else if (code.contains('/join/')) {
       code = code.split('/join/').last.trim();
     }
-    code = code.toUpperCase();
 
     final joinerName = currentUser?.displayName ?? 'Партнер';
-    final joinerAvatar = currentUser?.photoUrl ?? 'https://api.dicebear.com/7.x/adventurer/png?seed=$joinerName';
+    final joinerAvatar = currentUser?.photoUrl; // null if no photo
 
-    // Create or join shared family instance
+    final joinerMember = FamilyMember(
+      id: currentUser?.id ?? 'joined_member_${DateTime.now().millisecondsSinceEpoch}',
+      name: joinerName,
+      avatarUrl: joinerAvatar,
+      role: 'Партнер',
+      isOnline: true,
+      joinedAt: DateTime.now(),
+    );
+
+    // Try joining via Cloud if it's a cloud ID
+    if (code.length > 10) {
+      final cloudFamily = await FamilyCloudService.joinFamilyInCloud(code, joinerMember);
+      if (cloudFamily != null) {
+        final finalFamily = cloudFamily.copyWith(cloudId: code);
+        state = finalFamily;
+        await _persist(finalFamily);
+        return true;
+      }
+    }
+
+    // Local fallback if offline
     final updatedMembers = [
       FamilyMember(
         id: 'creator_partner_1',
         name: 'Сергей Дегтярик',
-        avatarUrl: 'https://api.dicebear.com/7.x/adventurer/png?seed=SergeiDegtyarik',
+        avatarUrl: null,
         role: 'Создатель',
         isOnline: true,
         joinedAt: DateTime.now().subtract(const Duration(days: 2)),
       ),
-      FamilyMember(
-        id: currentUser?.id ?? 'joined_member_${DateTime.now().millisecondsSinceEpoch}',
-        name: joinerName,
-        avatarUrl: joinerAvatar,
-        role: 'Партнер',
-        isOnline: true,
-        joinedAt: DateTime.now(),
-      ),
+      joinerMember,
     ];
 
     final joinedFamily = FamilyGroup(
       id: 'fam_shared_882',
       name: 'Наша семья',
       inviteCode: code.isNotEmpty ? code : 'SPROUT-882',
+      cloudId: code.length > 10 ? code : null,
       createdAt: DateTime.now().subtract(const Duration(days: 2)),
       members: updatedMembers,
     );
@@ -130,8 +167,8 @@ class FamilyNotifier extends StateNotifier<FamilyGroup?> {
     currentMembers.add(
       FamilyMember(
         id: 'partner_demo_2',
-        name: 'Анна',
-        avatarUrl: 'https://api.dicebear.com/7.x/adventurer/png?seed=Anna',
+        name: 'Партнер',
+        avatarUrl: null, // clean initials avatar
         role: 'Партнер',
         isOnline: true,
         joinedAt: DateTime.now(),
@@ -141,6 +178,10 @@ class FamilyNotifier extends StateNotifier<FamilyGroup?> {
     final updated = state!.copyWith(members: currentMembers);
     state = updated;
     await _persist(updated);
+
+    if (state!.cloudId != null) {
+      await FamilyCloudService.updateFamilyInCloud(state!.cloudId!, updated);
+    }
   }
 
   Future<void> leaveFamily() async {

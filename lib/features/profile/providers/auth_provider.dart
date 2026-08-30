@@ -6,7 +6,7 @@ import '../../../core/services/telegram_web_app_service.dart';
 import '../models/auth_user.dart';
 
 class AuthNotifier extends StateNotifier<AuthUser?> {
-  static const _kUserKey = 'sprout_auth_user_v2';
+  static const _kUserKey = 'sprout_auth_user_v3';
   final GoogleSignIn _googleSignIn = GoogleSignIn(
     scopes: ['email', 'profile'],
   );
@@ -20,18 +20,17 @@ class AuthNotifier extends StateNotifier<AuthUser?> {
     if (TelegramWebAppService.isTelegramWebApp) {
       final tgUser = TelegramWebAppService.getTelegramUser();
       if (tgUser != null) {
-        String? avatar = tgUser.photoUrl;
-        if (avatar == null || avatar.isEmpty) {
-          if (tgUser.username != null && tgUser.username!.isNotEmpty) {
-            avatar = 'https://unavatar.io/telegram/${tgUser.username}';
-          }
-        }
+        // Use real photo if provided by Telegram, otherwise null for clean initials avatar
+        final String? avatar = (tgUser.photoUrl != null && tgUser.photoUrl!.trim().isNotEmpty)
+            ? tgUser.photoUrl
+            : null;
+
         final user = AuthUser(
           id: 'tg_${tgUser.id}',
           displayName: tgUser.fullName,
           email: tgUser.username != null && tgUser.username!.isNotEmpty
               ? '@${tgUser.username}'
-              : 'telegram_user_${tgUser.id}',
+              : 'ID: ${tgUser.id}',
           photoUrl: avatar,
           authProviderType: 'telegram',
           username: tgUser.username,
@@ -61,10 +60,8 @@ class AuthNotifier extends StateNotifier<AuthUser?> {
     try {
       final GoogleSignInAccount? account = await _googleSignIn.signIn();
       if (account != null) {
-        // High quality Google avatar
         String? photo = account.photoUrl;
         if (photo != null && photo.contains('=')) {
-          // Replace thumbnail size with high-res 200px
           photo = photo.replaceAll(RegExp(r'=s\d+(-c)?'), '=s200-c');
         }
 
@@ -72,7 +69,7 @@ class AuthNotifier extends StateNotifier<AuthUser?> {
           id: account.id,
           displayName: account.displayName ?? 'Пользователь Sprout',
           email: account.email,
-          photoUrl: photo ?? 'https://api.dicebear.com/7.x/adventurer/png?seed=${account.displayName ?? 'Sprout'}',
+          photoUrl: photo,
           authProviderType: 'google',
         );
         state = user;
@@ -80,12 +77,11 @@ class AuthNotifier extends StateNotifier<AuthUser?> {
         return true;
       }
     } catch (e) {
-      // In case Google Play services / client ID is not configured on local build, provide realistic Google account login
       const demoUser = AuthUser(
         id: 'google_user_sergei',
         displayName: 'Сергей Дегтярик',
         email: 'degtyarik.up@gmail.com',
-        photoUrl: 'https://api.dicebear.com/7.x/adventurer/png?seed=SergeiDegtyarik',
+        photoUrl: null, // clean initials avatar
         authProviderType: 'google',
       );
       state = demoUser;
@@ -103,7 +99,7 @@ class AuthNotifier extends StateNotifier<AuthUser?> {
       id: 'tg_user_demo',
       displayName: '$firstName Дегтярик',
       email: username != null ? '@$username' : 'telegram_user',
-      photoUrl: 'https://api.dicebear.com/7.x/adventurer/png?seed=$firstName',
+      photoUrl: null, // clean initials avatar
       authProviderType: 'telegram',
       username: username,
     );

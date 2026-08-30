@@ -42,6 +42,7 @@ class FamilyGroup {
   final String id;
   final String name;
   final String inviteCode; // e.g. 'SPROUT-882'
+  final String? cloudId;
   final List<FamilyMember> members;
   final DateTime createdAt;
 
@@ -49,17 +50,21 @@ class FamilyGroup {
     required this.id,
     required this.name,
     required this.inviteCode,
+    this.cloudId,
     required this.members,
     required this.createdAt,
   });
 
-  String get inviteTelegramLink =>
-      'https://t.me/sprout_food_bot?startapp=join_$inviteCode';
+  String get inviteTelegramLink {
+    final linkCode = cloudId != null && cloudId!.isNotEmpty ? cloudId! : inviteCode;
+    return 'https://t.me/sprout_food_bot?startapp=join_$linkCode';
+  }
 
   FamilyGroup copyWith({
     String? id,
     String? name,
     String? inviteCode,
+    String? cloudId,
     List<FamilyMember>? members,
     DateTime? createdAt,
   }) {
@@ -67,6 +72,7 @@ class FamilyGroup {
       id: id ?? this.id,
       name: name ?? this.name,
       inviteCode: inviteCode ?? this.inviteCode,
+      cloudId: cloudId ?? this.cloudId,
       members: members ?? this.members,
       createdAt: createdAt ?? this.createdAt,
     );
@@ -76,6 +82,7 @@ class FamilyGroup {
         'id': id,
         'name': name,
         'inviteCode': inviteCode,
+        'cloudId': cloudId,
         'members': members.map((m) => m.toJson()).toList(),
         'createdAt': createdAt.toIso8601String(),
       };
@@ -85,6 +92,7 @@ class FamilyGroup {
       id: json['id'] as String? ?? '',
       name: json['name'] as String? ?? 'Наша семья',
       inviteCode: json['inviteCode'] as String? ?? 'SPROUT-777',
+      cloudId: json['cloudId'] as String?,
       members: (json['members'] as List<dynamic>?)
               ?.map((m) => FamilyMember.fromJson(m as Map<String, dynamic>))
               .toList() ??
