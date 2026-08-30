@@ -5,6 +5,9 @@ import 'dart:convert';
 @JS('window')
 external JSObject get _window;
 
+@JS('JSON.stringify')
+external JSString _jsJsonStringify(JSAny? obj);
+
 bool isInsideTelegram() {
   try {
     if (_window.has('Telegram')) {
@@ -40,37 +43,54 @@ String? getTelegramUserJson() {
     if (isInsideTelegram()) {
       final tg = _window.getProperty('Telegram'.toJS) as JSObject;
       final webApp = tg.getProperty('WebApp'.toJS) as JSObject;
+
+      // 1. Try initDataUnsafe.user directly via JSON.stringify
       if (webApp.has('initDataUnsafe')) {
-        final initData = webApp.getProperty('initDataUnsafe'.toJS) as JSObject;
-        if (initData.has('user')) {
-          final userObj = initData.getProperty('user'.toJS) as JSObject;
-          final Map<String, dynamic> userMap = {};
+        final initDataUnsafe = webApp.getProperty('initDataUnsafe'.toJS) as JSObject;
+        if (initDataUnsafe.has('user')) {
+          final userObj = initDataUnsafe.getProperty('user'.toJS);
+          if (userObj != null) {
+            final jsonStr = _jsJsonStringify(userObj).toDart;
+            if (jsonStr.isNotEmpty && jsonStr != 'null' && jsonStr != '{}') {
+              // Also attach start_param if present
+              if (initDataUnsafe.has('start_param')) {
+                final sp = (initDataUnsafe.getProperty('start_param'.toJS) as JSString).toDart;
+                try {
+                  final map = jsonDecode(jsonStr) as Map<String, dynamic>;
+                  map['start_param'] = sp;
+                  return jsonEncode(map);
+                } catch (_) {}
+              }
+              return jsonStr;
+            }
+          }
+        }
+      }
 
-          if (userObj.has('id')) {
-            userMap['id'] = (userObj.getProperty('id'.toJS) as JSNumber).toDartInt;
+      // 2. Try raw initData string
+      if (webApp.has('initData')) {
+        final rawInitData = (webApp.getProperty('initData'.toJS) as JSString).toDart;
+        if (rawInitData.isNotEmpty) {
+          final uri = Uri.tryParse('http://localhost/?$rawInitData');
+          if (uri != null && uri.queryParameters.containsKey('user')) {
+            return uri.queryParameters['user'];
           }
-          if (userObj.has('first_name')) {
-            userMap['first_name'] = (userObj.getProperty('first_name'.toJS) as JSString).toDart;
-          }
-          if (userObj.has('last_name')) {
-            userMap['last_name'] = (userObj.getProperty('last_name'.toJS) as JSString).toDart;
-          }
-          if (userObj.has('username')) {
-            userMap['username'] = (userObj.getProperty('username'.toJS) as JSString).toDart;
-          }
-          if (userObj.has('photo_url')) {
-            userMap['photo_url'] = (userObj.getProperty('photo_url'.toJS) as JSString).toDart;
-          }
-          if (userObj.has('language_code')) {
-            userMap['language_code'] = (userObj.getProperty('language_code'.toJS) as JSString).toDart;
-          }
+        }
+      }
+    }
 
-          // Check start_param from initData
-          if (initData.has('start_param')) {
-            userMap['start_param'] = (initData.getProperty('start_param'.toJS) as JSString).toDart;
+    // 3. Try URL hash parameters (#tgWebAppData=...)
+    if (_window.has('location')) {
+      final loc = _window.getProperty('location'.toJS) as JSObject;
+      if (loc.has('hash')) {
+        final hash = (loc.getProperty('hash'.toJS) as JSString).toDart;
+        if (hash.contains('tgWebAppData=')) {
+          final rawData = hash.split('tgWebAppData=').last.split('&').first;
+          final decoded = Uri.decodeComponent(rawData);
+          final uri = Uri.tryParse('http://localhost/?$decoded');
+          if (uri != null && uri.queryParameters.containsKey('user')) {
+            return uri.queryParameters['user'];
           }
-
-          return jsonEncode(userMap);
         }
       }
     }
@@ -80,13 +100,53 @@ String? getTelegramUserJson() {
 
 String? getTelegramStartParam() {
   try {
+    // 1. From Telegram.WebApp.initDataUnsafe.start_param
     if (isInsideTelegram()) {
       final tg = _window.getProperty('Telegram'.toJS) as JSObject;
       final webApp = tg.getProperty('WebApp'.toJS) as JSObject;
       if (webApp.has('initDataUnsafe')) {
         final initData = webApp.getProperty('initDataUnsafe'.toJS) as JSObject;
         if (initData.has('start_param')) {
-          return (initData.getProperty('start_param'.toJS) as JSString).toDart;
+          final param = (initData.getProperty('start_param'.toJS) as JSString).toDart;
+          if (param.isNotEmpty) return param;
+        }
+      }
+      if (webApp.has('initData')) {
+        final rawInitData = (webApp.getProperty('initData'.toJS) as JSString).toDart;
+        if (rawInitData.isNotEmpty) {
+          final uri = Uri.tryParse('http://localhost/?$rawInitData');
+          if (uri != null && uri.queryParameters.containsKey('start_param')) {
+            return uri.queryParameters['start_param'];
+          }
+        }
+      }
+    }
+
+    // 2. From URL Query search params (?startapp=join_... or ?tgWebAppStartParam=join_...)
+    if (_window.has('location')) {
+      final loc = _window.getProperty('location'.toJS) as JSObject;
+      if (loc.has('search')) {
+        final search = (loc.getProperty('search'.toJS) as JSString).toDart;
+        final uri = Uri.tryParse('http://localhost/$search');
+        if (uri != null) {
+          if (uri.queryParameters.containsKey('startapp')) {
+            return uri.queryParameters['startapp'];
+          }
+          if (uri.queryParameters.containsKey('tgWebAppStartParam')) {
+            return uri.queryParameters['tgWebAppStartParam'];
+          }
+        }
+      }
+      // 3. From URL Hash
+      if (loc.has('hash')) {
+        final hash = (loc.getProperty('hash'.toJS) as JSString).toDart;
+        if (hash.contains('start_param=')) {
+          final part = hash.split('start_param=').last.split('&').first;
+          if (part.isNotEmpty) return Uri.decodeComponent(part);
+        }
+        if (hash.contains('tgWebAppStartParam=')) {
+          final part = hash.split('tgWebAppStartParam=').last.split('&').first;
+          if (part.isNotEmpty) return Uri.decodeComponent(part);
         }
       }
     }

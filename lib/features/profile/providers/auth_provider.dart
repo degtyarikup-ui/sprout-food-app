@@ -20,13 +20,19 @@ class AuthNotifier extends StateNotifier<AuthUser?> {
     if (TelegramWebAppService.isTelegramWebApp) {
       final tgUser = TelegramWebAppService.getTelegramUser();
       if (tgUser != null) {
+        String? avatar = tgUser.photoUrl;
+        if (avatar == null || avatar.isEmpty) {
+          if (tgUser.username != null && tgUser.username!.isNotEmpty) {
+            avatar = 'https://unavatar.io/telegram/${tgUser.username}';
+          }
+        }
         final user = AuthUser(
           id: 'tg_${tgUser.id}',
           displayName: tgUser.fullName,
           email: tgUser.username != null && tgUser.username!.isNotEmpty
               ? '@${tgUser.username}'
               : 'telegram_user_${tgUser.id}',
-          photoUrl: tgUser.photoUrl ?? 'https://api.dicebear.com/7.x/adventurer/png?seed=${tgUser.firstName}',
+          photoUrl: avatar,
           authProviderType: 'telegram',
           username: tgUser.username,
         );
