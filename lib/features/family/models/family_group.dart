@@ -54,7 +54,7 @@ class FamilyGroup {
   });
 
   String get inviteTelegramLink =>
-      'https://t.me/sprout_food_app_bot?startapp=join_$inviteCode';
+      'https://t.me/sprout_food_bot?startapp=join_$inviteCode';
 
   FamilyGroup copyWith({
     String? id,
