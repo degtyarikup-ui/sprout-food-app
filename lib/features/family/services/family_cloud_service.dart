@@ -24,7 +24,7 @@ class FamilyCloudService {
       ).timeout(const Duration(seconds: 8));
 
       if (response.statusCode == 200 || response.statusCode == 201) {
-        final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+        final decoded = jsonDecode(response.body) as Map<dynamic, dynamic>;
         return decoded['id'] as String?;
       }
     } catch (_) {}
@@ -39,9 +39,9 @@ class FamilyCloudService {
       ).timeout(const Duration(seconds: 8));
 
       if (response.statusCode == 200) {
-        final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+        final decoded = jsonDecode(response.body) as Map<dynamic, dynamic>;
         if (decoded.containsKey('data')) {
-          final data = decoded['data'] as Map<String, dynamic>;
+          final data = Map<String, dynamic>.from(decoded['data'] as Map);
           return FamilyGroup.fromJson(data);
         }
       }
@@ -57,18 +57,18 @@ class FamilyCloudService {
       ).timeout(const Duration(seconds: 8));
 
       if (response.statusCode == 200) {
-        final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+        final decoded = jsonDecode(response.body) as Map<dynamic, dynamic>;
         if (decoded.containsKey('data')) {
-          final data = decoded['data'] as Map<String, dynamic>;
+          final data = Map<String, dynamic>.from(decoded['data'] as Map);
           final family = FamilyGroup.fromJson(data);
 
           final List<ProductItem> fridge = (data['fridge'] as List<dynamic>?)
-                  ?.map((item) => ProductItem.fromJson(item as Map<String, dynamic>))
+                  ?.map((item) => ProductItem.fromJson(item as Map))
                   .toList() ??
               [];
 
           final List<GroceryItem> grocery = (data['grocery'] as List<dynamic>?)
-                  ?.map((item) => GroceryItem.fromJson(item as Map<String, dynamic>))
+                  ?.map((item) => GroceryItem.fromJson(item as Map))
                   .toList() ??
               [];
 
@@ -91,8 +91,11 @@ class FamilyCloudService {
     List<GroceryItem>? grocery,
   }) async {
     try {
-      // First fetch current data to avoid overwriting unchanged sections
-      final existingData = await fetchFullCloudData(cloudId);
+      Map<String, dynamic>? existingData;
+      if (family == null || fridge == null || grocery == null) {
+        existingData = await fetchFullCloudData(cloudId);
+      }
+
       final currentFamily = family ?? existingData?['family'] as FamilyGroup?;
       final currentFridge = fridge ?? existingData?['fridge'] as List<ProductItem>? ?? [];
       final currentGrocery = grocery ?? existingData?['grocery'] as List<GroceryItem>? ?? [];
@@ -135,7 +138,12 @@ class FamilyCloudService {
       }
 
       final updatedFamily = existing.copyWith(members: members);
-      await updateCloudData(cloudId, family: updatedFamily);
+      await updateCloudData(
+        cloudId,
+        family: updatedFamily,
+        fridge: full['fridge'] as List<ProductItem>?,
+        grocery: full['grocery'] as List<GroceryItem>?,
+      );
       return updatedFamily;
     } catch (_) {
       return null;

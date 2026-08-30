@@ -24,7 +24,8 @@ class FamilyMember {
         'joinedAt': joinedAt.toIso8601String(),
       };
 
-  factory FamilyMember.fromJson(Map<String, dynamic> json) {
+  factory FamilyMember.fromJson(Map<dynamic, dynamic> rawJson) {
+    final json = Map<String, dynamic>.from(rawJson);
     return FamilyMember(
       id: json['id'] as String? ?? '',
       name: json['name'] as String? ?? 'Участник',
@@ -32,7 +33,7 @@ class FamilyMember {
       role: json['role'] as String? ?? 'Партнер',
       isOnline: json['isOnline'] as bool? ?? true,
       joinedAt: json['joinedAt'] != null
-          ? DateTime.tryParse(json['joinedAt'] as String) ?? DateTime.now()
+          ? DateTime.tryParse(json['joinedAt'].toString()) ?? DateTime.now()
           : DateTime.now(),
     );
   }
@@ -87,18 +88,19 @@ class FamilyGroup {
         'createdAt': createdAt.toIso8601String(),
       };
 
-  factory FamilyGroup.fromJson(Map<String, dynamic> json) {
+  factory FamilyGroup.fromJson(Map<dynamic, dynamic> rawJson) {
+    final json = Map<String, dynamic>.from(rawJson);
     return FamilyGroup(
       id: json['id'] as String? ?? '',
       name: json['name'] as String? ?? 'Наша семья',
       inviteCode: json['inviteCode'] as String? ?? 'SPROUT-777',
       cloudId: json['cloudId'] as String?,
       members: (json['members'] as List<dynamic>?)
-              ?.map((m) => FamilyMember.fromJson(m as Map<String, dynamic>))
+              ?.map((m) => FamilyMember.fromJson(Map<String, dynamic>.from(m as Map)))
               .toList() ??
           [],
       createdAt: json['createdAt'] != null
-          ? DateTime.tryParse(json['createdAt'] as String) ?? DateTime.now()
+          ? DateTime.tryParse(json['createdAt'].toString()) ?? DateTime.now()
           : DateTime.now(),
     );
   }

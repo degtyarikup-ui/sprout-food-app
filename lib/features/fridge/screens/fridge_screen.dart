@@ -25,6 +25,14 @@ class _FridgeScreenState extends ConsumerState<FridgeScreen> {
   FreshnessCategory? _selectedFilter;
   String _searchQuery = '';
 
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(familyProvider.notifier).refreshFromCloud();
+    });
+  }
+
   // ── Transfer Purchased to Fridge ──────────────────────────────────────────
   void _transferPurchasedToFridge(List<GroceryItem> checkedItems) {
     HapticFeedback.mediumImpact();

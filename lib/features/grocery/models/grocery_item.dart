@@ -61,13 +61,14 @@ class GroceryItem {
     };
   }
 
-  factory GroceryItem.fromJson(Map<String, dynamic> json) {
+  factory GroceryItem.fromJson(Map<dynamic, dynamic> rawJson) {
+    final json = Map<String, dynamic>.from(rawJson);
     return GroceryItem(
       id: json['id'] as String?,
-      name: json['name'] as String,
-      amount: (json['amount'] as num).toDouble(),
-      unit: json['unit'] as String,
-      department: json['department'] as String,
+      name: json['name'] as String? ?? 'Товар',
+      amount: (json['amount'] as num?)?.toDouble() ?? 1.0,
+      unit: json['unit'] as String? ?? 'шт',
+      department: json['department'] as String? ?? 'Бакалея',
       isChecked: json['isChecked'] as bool? ?? false,
       recipeOriginTitle: json['recipeOriginTitle'] as String?,
       estimatedCost: (json['estimatedCost'] as num?)?.toDouble(),

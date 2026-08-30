@@ -92,15 +92,20 @@ class ProductItem {
     };
   }
 
-  factory ProductItem.fromJson(Map<String, dynamic> json) {
+  factory ProductItem.fromJson(Map<dynamic, dynamic> rawJson) {
+    final json = Map<String, dynamic>.from(rawJson);
     return ProductItem(
       id: json['id'] as String?,
-      name: json['name'] as String,
-      amount: (json['amount'] as num).toDouble(),
-      unit: json['unit'] as String,
-      category: json['category'] as String,
-      addedDate: DateTime.parse(json['addedDate'] as String),
-      expiryDate: DateTime.parse(json['expiryDate'] as String),
+      name: json['name'] as String? ?? 'Продукт',
+      amount: (json['amount'] as num?)?.toDouble() ?? 1.0,
+      unit: json['unit'] as String? ?? 'шт',
+      category: json['category'] as String? ?? 'Разное',
+      addedDate: json['addedDate'] != null
+          ? DateTime.tryParse(json['addedDate'].toString()) ?? DateTime.now()
+          : DateTime.now(),
+      expiryDate: json['expiryDate'] != null
+          ? DateTime.tryParse(json['expiryDate'].toString()) ?? DateTime.now().add(const Duration(days: 5))
+          : DateTime.now().add(const Duration(days: 5)),
       emoji: json['emoji'] as String? ?? '🥑',
       isOpened: json['isOpened'] as bool? ?? false,
       estimatedPrice: (json['estimatedPrice'] as num?)?.toDouble(),

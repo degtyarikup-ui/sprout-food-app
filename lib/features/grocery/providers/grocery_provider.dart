@@ -191,7 +191,11 @@ class GroceryNotifier extends StateNotifier<List<GroceryItem>> {
     try {
       final family = _ref.read(familyProvider);
       if (family != null && family.cloudId != null) {
-        await FamilyCloudService.updateCloudData(family.cloudId!, grocery: state);
+        await FamilyCloudService.updateCloudData(
+          family.cloudId!,
+          family: family,
+          grocery: state,
+        );
       }
     } catch (_) {}
   }
