@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 
@@ -35,6 +36,14 @@ class AppAvatar extends StatelessWidget {
         photoUrl!.trim().isNotEmpty &&
         (photoUrl!.startsWith('http://') || photoUrl!.startsWith('https://'));
 
+    // Route external image URLs through CORS proxy on Web to bypass CanvasKit CORS restrictions
+    String effectiveUrl = photoUrl ?? '';
+    if (kIsWeb && hasValidUrl) {
+      if (!effectiveUrl.startsWith('https://wsrv.nl')) {
+        effectiveUrl = 'https://wsrv.nl/?url=${Uri.encodeComponent(effectiveUrl)}&w=256&h=256&fit=cover&a=top';
+      }
+    }
+
     final avatarWidget = ClipRRect(
       borderRadius: BorderRadius.circular(size / 2),
       child: Container(
@@ -46,7 +55,7 @@ class AppAvatar extends StatelessWidget {
         ),
         child: hasValidUrl
             ? Image.network(
-                photoUrl!,
+                effectiveUrl,
                 width: size,
                 height: size,
                 fit: BoxFit.cover,

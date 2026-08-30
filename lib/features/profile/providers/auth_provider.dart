@@ -6,7 +6,7 @@ import '../../../core/services/telegram_web_app_service.dart';
 import '../models/auth_user.dart';
 
 class AuthNotifier extends StateNotifier<AuthUser?> {
-  static const _kUserKey = 'sprout_auth_user_v3';
+  static const _kUserKey = 'sprout_auth_user_v4';
   final GoogleSignIn _googleSignIn = GoogleSignIn(
     scopes: ['email', 'profile'],
   );
@@ -20,10 +20,14 @@ class AuthNotifier extends StateNotifier<AuthUser?> {
     if (TelegramWebAppService.isTelegramWebApp) {
       final tgUser = TelegramWebAppService.getTelegramUser();
       if (tgUser != null) {
-        // Use real photo if provided by Telegram, otherwise null for clean initials avatar
-        final String? avatar = (tgUser.photoUrl != null && tgUser.photoUrl!.trim().isNotEmpty)
+        // Use real photo if provided by Telegram WebApp, or Telegram userpic if username is present
+        String? avatar = (tgUser.photoUrl != null && tgUser.photoUrl!.trim().isNotEmpty)
             ? tgUser.photoUrl
             : null;
+
+        if (avatar == null && tgUser.username != null && tgUser.username!.isNotEmpty) {
+          avatar = 'https://t.me/i/userpic/320/${tgUser.username}.jpg';
+        }
 
         final user = AuthUser(
           id: 'tg_${tgUser.id}',
@@ -81,7 +85,7 @@ class AuthNotifier extends StateNotifier<AuthUser?> {
         id: 'google_user_sergei',
         displayName: 'Сергей Дегтярик',
         email: 'degtyarik.up@gmail.com',
-        photoUrl: null, // clean initials avatar
+        photoUrl: null,
         authProviderType: 'google',
       );
       state = demoUser;
@@ -99,7 +103,7 @@ class AuthNotifier extends StateNotifier<AuthUser?> {
       id: 'tg_user_demo',
       displayName: '$firstName Дегтярик',
       email: username != null ? '@$username' : 'telegram_user',
-      photoUrl: null, // clean initials avatar
+      photoUrl: username != null ? 'https://t.me/i/userpic/320/$username.jpg' : null,
       authProviderType: 'telegram',
       username: username,
     );
