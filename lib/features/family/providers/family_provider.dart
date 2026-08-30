@@ -14,7 +14,7 @@ import '../models/family_group.dart';
 import '../services/family_cloud_service.dart';
 
 class FamilyNotifier extends StateNotifier<FamilyGroup?> {
-  static const _kFamilyKey = 'sprout_family_group_v2';
+  static const _kFamilyKey = 'sprout_family_group_v3';
   final Ref _ref;
   Timer? _autoSyncTimer;
 
@@ -25,8 +25,18 @@ class FamilyNotifier extends StateNotifier<FamilyGroup?> {
   Future<void> _init() async {
     await _loadFromStorage();
 
-    // 1. If we have a cloudId, refresh from cloud immediately & start auto-sync
-    if (state != null && state!.cloudId != null) {
+    // 1. If state exists, ensure cloudId is attached and start auto-sync
+    if (state != null) {
+      if (state!.cloudId == null || state!.cloudId!.isEmpty) {
+        try {
+          final cloudId = await FamilyCloudService.createFamilyInCloud(state!);
+          if (cloudId != null) {
+            state = state!.copyWith(cloudId: cloudId);
+            await _persist(state!);
+          }
+        } catch (_) {}
+      }
+
       await refreshFromCloud();
       _startAutoSync();
     }
@@ -42,23 +52,26 @@ class FamilyNotifier extends StateNotifier<FamilyGroup?> {
 
   void _startAutoSync() {
     _autoSyncTimer?.cancel();
-    _autoSyncTimer = Timer.periodic(const Duration(seconds: 4), (_) {
-      if (state != null && state!.cloudId != null) {
+    _autoSyncTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+      if (state != null && state!.cloudId != null && state!.cloudId!.isNotEmpty) {
         refreshFromCloud();
       }
     });
   }
 
   Future<void> refreshFromCloud() async {
-    if (state == null || state!.cloudId == null) return;
+    if (state == null || state!.cloudId == null || state!.cloudId!.isEmpty) return;
     try {
       final fullData = await FamilyCloudService.fetchFullCloudData(state!.cloudId!);
       if (fullData != null) {
         if (fullData.containsKey('family')) {
           final cloudFamily = fullData['family'] as FamilyGroup;
-          // Only update state if members count or data changed to avoid UI re-render jitter
-          state = cloudFamily.copyWith(cloudId: state!.cloudId);
-          await _persist(state!);
+          // Check if state actually updated
+          if (cloudFamily.members.length != state!.members.length ||
+              cloudFamily.name != state!.name) {
+            state = cloudFamily.copyWith(cloudId: state!.cloudId);
+            await _persist(state!);
+          }
         }
         if (fullData.containsKey('fridge')) {
           final cloudFridge = fullData['fridge'] as List<ProductItem>;
@@ -139,7 +152,6 @@ class FamilyNotifier extends StateNotifier<FamilyGroup?> {
     String codeOrLink, {
     AuthUser? currentUser,
   }) async {
-    // Clean input code or extract from full link
     String code = codeOrLink.trim();
     if (code.contains('join_')) {
       code = code.split('join_').last.trim();
@@ -148,7 +160,7 @@ class FamilyNotifier extends StateNotifier<FamilyGroup?> {
     }
 
     final joinerName = currentUser?.displayName ?? 'Партнер';
-    final joinerAvatar = currentUser?.photoUrl; // null if no photo
+    final joinerAvatar = currentUser?.photoUrl;
 
     final joinerMember = FamilyMember(
       id: currentUser?.id ?? 'joined_member_${DateTime.now().millisecondsSinceEpoch}',
@@ -159,27 +171,25 @@ class FamilyNotifier extends StateNotifier<FamilyGroup?> {
       joinedAt: DateTime.now(),
     );
 
-    // Try joining via Cloud if it's a cloud ID
-    if (code.length > 10) {
-      final cloudFamily = await FamilyCloudService.joinFamilyInCloud(code, joinerMember);
-      if (cloudFamily != null) {
-        final finalFamily = cloudFamily.copyWith(cloudId: code);
-        state = finalFamily;
-        await _persist(finalFamily);
+    // Always attempt cloud join first
+    final cloudFamily = await FamilyCloudService.joinFamilyInCloud(code, joinerMember);
+    if (cloudFamily != null) {
+      final finalFamily = cloudFamily.copyWith(cloudId: code);
+      state = finalFamily;
+      await _persist(finalFamily);
 
-        // Fetch shared inventory into joiner's app
-        final fullData = await FamilyCloudService.fetchFullCloudData(code);
-        if (fullData != null) {
-          if (fullData.containsKey('fridge')) {
-            _ref.read(fridgeProvider.notifier).setProductsFromCloud(fullData['fridge'] as List<ProductItem>);
-          }
-          if (fullData.containsKey('grocery')) {
-            _ref.read(groceryProvider.notifier).setGroceryFromCloud(fullData['grocery'] as List<GroceryItem>);
-          }
+      // Fetch shared inventory
+      final fullData = await FamilyCloudService.fetchFullCloudData(code);
+      if (fullData != null) {
+        if (fullData.containsKey('fridge')) {
+          _ref.read(fridgeProvider.notifier).setProductsFromCloud(fullData['fridge'] as List<ProductItem>);
         }
-        _startAutoSync();
-        return true;
+        if (fullData.containsKey('grocery')) {
+          _ref.read(groceryProvider.notifier).setGroceryFromCloud(fullData['grocery'] as List<GroceryItem>);
+        }
       }
+      _startAutoSync();
+      return true;
     }
 
     // Local fallback if offline
@@ -199,7 +209,7 @@ class FamilyNotifier extends StateNotifier<FamilyGroup?> {
       id: 'fam_shared_882',
       name: 'Наша семья',
       inviteCode: code.isNotEmpty ? code : 'SPROUT-882',
-      cloudId: code.length > 10 ? code : null,
+      cloudId: code.length > 5 ? code : null,
       createdAt: DateTime.now().subtract(const Duration(days: 2)),
       members: updatedMembers,
     );
