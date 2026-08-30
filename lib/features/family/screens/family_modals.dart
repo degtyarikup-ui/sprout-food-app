@@ -339,45 +339,41 @@ class FamilyModals {
                 },
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
 
-            // Telegram Mini App Link Box (also clickable to open TG Chat Chooser)
+            // Web Direct Link Box
             GestureDetector(
               onTap: () {
                 HapticFeedback.selectionClick();
-                Clipboard.setData(ClipboardData(text: family.inviteTelegramLink));
-                TelegramWebAppService.openShareDialog(
-                  url: family.inviteTelegramLink,
-                  text: '🥑 Привет! Присоединяйся к моей семье в Sprout для совместного меню и покупок:',
-                );
+                Clipboard.setData(ClipboardData(text: family.inviteWebLink));
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
                     backgroundColor: AppColors.primary,
                     behavior: SnackBarBehavior.floating,
-                    content: Text('Открываем Telegram для выбора контакта...'),
+                    content: Text('Прямая веб-ссылка скопирована в буфер обмена!'),
                   ),
                 );
               },
               child: Container(
-                padding: const EdgeInsets.all(14),
+                padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: AppColors.surfaceMuted,
-                  borderRadius: BorderRadius.circular(18),
+                  borderRadius: BorderRadius.circular(16),
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.share_rounded, size: 20, color: AppColors.primary),
+                    const Icon(Icons.language_rounded, size: 20, color: AppColors.primary),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Text(
-                            'Ссылка для Telegram (нажмите для отправки)',
+                            'Веб-ссылка (для браузера)',
                             style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
                           ),
                           Text(
-                            family.inviteTelegramLink,
+                            family.inviteWebLink,
                             style: const TextStyle(fontSize: 11, color: AppColors.textTertiary),
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -388,12 +384,12 @@ class FamilyModals {
                       icon: const Icon(Icons.copy_rounded, size: 18),
                       onPressed: () {
                         HapticFeedback.selectionClick();
-                        Clipboard.setData(ClipboardData(text: family.inviteTelegramLink));
+                        Clipboard.setData(ClipboardData(text: family.inviteWebLink));
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
                             backgroundColor: AppColors.primary,
                             behavior: SnackBarBehavior.floating,
-                            content: Text('Ссылка скопирована!'),
+                            content: Text('Веб-ссылка скопирована!'),
                           ),
                         );
                       },

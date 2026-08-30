@@ -61,6 +61,11 @@ class FamilyGroup {
     return 'https://t.me/sprout_food_bot?startapp=join_$linkCode';
   }
 
+  String get inviteWebLink {
+    final linkCode = cloudId != null && cloudId!.isNotEmpty ? cloudId! : inviteCode;
+    return 'https://degtyarikup-ui.github.io/sprout-food-app/?join=$linkCode';
+  }
+
   FamilyGroup copyWith({
     String? id,
     String? name,

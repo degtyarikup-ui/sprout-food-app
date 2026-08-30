@@ -10,10 +10,12 @@ class FamilyCloudService {
 
   static String cleanCloudId(String rawId) {
     String id = rawId.trim();
-    if (id.contains('join_')) {
-      id = id.split('join_').last.trim();
+    if (id.contains('join=')) {
+      id = id.split('join=').last.split('&').first.trim();
+    } else if (id.contains('join_')) {
+      id = id.split('join_').last.split('&').first.trim();
     } else if (id.contains('/join/')) {
-      id = id.split('/join/').last.trim();
+      id = id.split('/join/').last.split('&').first.trim();
     }
     if (id.contains('startapp=')) {
       id = id.split('startapp=').last.split('&').first.trim();
@@ -24,7 +26,10 @@ class FamilyCloudService {
     if (id.contains('?')) {
       id = id.split('?').first.trim();
     }
-    return id;
+    if (id.contains('#')) {
+      id = id.split('#').first.trim();
+    }
+    return id.trim();
   }
 
   /// Save newly created family to cloud and return the cloud object ID

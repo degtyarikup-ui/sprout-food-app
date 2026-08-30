@@ -155,11 +155,21 @@ String? getTelegramStartParam() {
           if (uri.queryParameters.containsKey('tgWebAppStartParam')) {
             return uri.queryParameters['tgWebAppStartParam'];
           }
+          if (uri.queryParameters.containsKey('join')) {
+            return uri.queryParameters['join'];
+          }
+          if (uri.queryParameters.containsKey('start_param')) {
+            return uri.queryParameters['start_param'];
+          }
         }
       }
       // 3. From URL Hash
       if (loc.has('hash')) {
         final hash = (loc.getProperty('hash'.toJS) as JSString).toDart;
+        if (hash.contains('join=')) {
+          final part = hash.split('join=').last.split('&').first;
+          if (part.isNotEmpty) return Uri.decodeComponent(part);
+        }
         if (hash.contains('start_param=')) {
           final part = hash.split('start_param=').last.split('&').first;
           if (part.isNotEmpty) return Uri.decodeComponent(part);
