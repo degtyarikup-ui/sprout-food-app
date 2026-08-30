@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Sprout Telegram Mini App Bot
+Sprout Telegram Mini App Bot & Avatar Sync Daemon
 Web App URL: https://degtyarikup-ui.github.io/sprout-food-app/
 """
 
@@ -25,13 +25,9 @@ def load_env():
 
 load_env()
 
-BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
+BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "8826180004:AAH6mc4XMueu8qmsTX6rrzyLcvKkpsAtftU")
 WEB_APP_URL = os.environ.get("WEB_APP_URL", "https://degtyarikup-ui.github.io/sprout-food-app/")
 API_BASE = f"https://api.telegram.org/bot{BOT_TOKEN}"
-
-if not BOT_TOKEN:
-    print("Error: TELEGRAM_BOT_TOKEN not found in environment or .env file!", file=sys.stderr)
-    sys.exit(1)
 
 def api_call(method, payload=None):
     url = f"{API_BASE}/{method}"
@@ -44,6 +40,25 @@ def api_call(method, payload=None):
     except Exception as e:
         print(f"API Error ({method}): {e}", file=sys.stderr)
         return None
+
+def get_user_avatar_url(user_id):
+    """Fetch high-resolution Telegram avatar using Bot API"""
+    try:
+        photos_resp = api_call("getUserProfilePhotos", {"user_id": user_id, "limit": 1})
+        if photos_resp and photos_resp.get("ok") and photos_resp.get("result", {}).get("photos"):
+            photos = photos_resp["result"]["photos"]
+            if photos and len(photos) > 0 and len(photos[0]) > 0:
+                # Largest photo size is the last element
+                largest_photo = photos[0][-1]
+                file_id = largest_photo.get("file_id")
+                if file_id:
+                    file_info = api_call("getFile", {"file_id": file_id})
+                    if file_info and file_info.get("ok") and file_info.get("result", {}).get("file_path"):
+                        file_path = file_info["result"]["file_path"]
+                        return f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file_path}"
+    except Exception as e:
+        print(f"Error fetching user photo for {user_id}: {e}", file=sys.stderr)
+    return None
 
 def setup_bot():
     # 1. Set Menu Button
@@ -81,6 +96,20 @@ def setup_bot():
     })
     print("Bot configuration synchronized successfully!")
 
+def build_app_url(start_param=None, avatar_url=None, username=None):
+    params = []
+    if start_param:
+        params.append(f"startapp={urllib.parse.quote(start_param, safe='')}")
+    if avatar_url:
+        params.append(f"tg_photo={urllib.parse.quote(avatar_url, safe='')}")
+    if username:
+        params.append(f"tg_username={urllib.parse.quote(username, safe='')}")
+
+    if params:
+        sep = "&" if "?" in WEB_APP_URL else "?"
+        return f"{WEB_APP_URL}{sep}{'&'.join(params)}"
+    return WEB_APP_URL
+
 def handle_update(update):
     message = update.get("message")
     if not message:
@@ -88,7 +117,10 @@ def handle_update(update):
 
     chat_id = message.get("chat", {}).get("id")
     text = (message.get("text") or "").strip()
-    first_name = message.get("from", {}).get("first_name", "друг")
+    user_info = message.get("from", {})
+    user_id = user_info.get("id")
+    first_name = user_info.get("first_name", "друг")
+    username = user_info.get("username")
 
     if not chat_id:
         return
@@ -97,11 +129,11 @@ def handle_update(update):
     if text.startswith("/start"):
         parts = text.split(" ")
         if len(parts) > 1:
-            start_param = parts[1]
+            start_param = parts[1].strip()
 
-    web_app_url = WEB_APP_URL
-    if start_param:
-        web_app_url = f"{WEB_APP_URL}?startapp={start_param}"
+    # Fetch avatar photo
+    avatar_url = get_user_avatar_url(user_id) if user_id else None
+    web_app_url = build_app_url(start_param=start_param, avatar_url=avatar_url, username=username)
 
     welcome_text = (
         f"Привет, {first_name}! 🥑\n\n"
@@ -140,7 +172,7 @@ def handle_update(update):
 
 def run_polling():
     setup_bot()
-    print("Starting Telegram Bot long-polling...")
+    print("Starting Telegram Bot long-polling with Avatar extraction support...")
     last_update_id = 0
     while True:
         try:

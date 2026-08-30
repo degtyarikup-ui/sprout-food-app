@@ -52,15 +52,14 @@ String? getTelegramUserJson() {
           if (userObj != null) {
             final jsonStr = _jsJsonStringify(userObj).toDart;
             if (jsonStr.isNotEmpty && jsonStr != 'null' && jsonStr != '{}') {
-              // Also attach start_param if present
-              if (initDataUnsafe.has('start_param')) {
-                final sp = (initDataUnsafe.getProperty('start_param'.toJS) as JSString).toDart;
-                try {
-                  final map = jsonDecode(jsonStr) as Map<String, dynamic>;
+              try {
+                final map = jsonDecode(jsonStr) as Map<String, dynamic>;
+                if (initDataUnsafe.has('start_param')) {
+                  final sp = (initDataUnsafe.getProperty('start_param'.toJS) as JSString).toDart;
                   map['start_param'] = sp;
-                  return jsonEncode(map);
-                } catch (_) {}
-              }
+                }
+                return jsonEncode(map);
+              } catch (_) {}
               return jsonStr;
             }
           }
@@ -147,6 +146,45 @@ String? getTelegramStartParam() {
         if (hash.contains('tgWebAppStartParam=')) {
           final part = hash.split('tgWebAppStartParam=').last.split('&').first;
           if (part.isNotEmpty) return Uri.decodeComponent(part);
+        }
+      }
+    }
+  } catch (_) {}
+  return null;
+}
+
+String? getTelegramPhotoParam() {
+  try {
+    if (_window.has('location')) {
+      final loc = _window.getProperty('location'.toJS) as JSObject;
+      if (loc.has('search')) {
+        final search = (loc.getProperty('search'.toJS) as JSString).toDart;
+        final uri = Uri.tryParse('http://localhost/$search');
+        if (uri != null && uri.queryParameters.containsKey('tg_photo')) {
+          return uri.queryParameters['tg_photo'];
+        }
+      }
+      if (loc.has('hash')) {
+        final hash = (loc.getProperty('hash'.toJS) as JSString).toDart;
+        if (hash.contains('tg_photo=')) {
+          final part = hash.split('tg_photo=').last.split('&').first;
+          if (part.isNotEmpty) return Uri.decodeComponent(part);
+        }
+      }
+    }
+  } catch (_) {}
+  return null;
+}
+
+String? getTelegramUsernameParam() {
+  try {
+    if (_window.has('location')) {
+      final loc = _window.getProperty('location'.toJS) as JSObject;
+      if (loc.has('search')) {
+        final search = (loc.getProperty('search'.toJS) as JSString).toDart;
+        final uri = Uri.tryParse('http://localhost/$search');
+        if (uri != null && uri.queryParameters.containsKey('tg_username')) {
+          return uri.queryParameters['tg_username'];
         }
       }
     }

@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/services/local_storage_service.dart';
 import '../../analytics/providers/eco_savings_provider.dart';
+import '../../family/providers/family_provider.dart';
+import '../../family/services/family_cloud_service.dart';
 import '../../recipes/data/curated_recipes.dart';
 import '../../recipes/models/recipe.dart';
 import '../models/meal_plan_day.dart';
@@ -18,8 +20,32 @@ class MealPlannerNotifier extends StateNotifier<List<MealPlanDay>> {
     if (saved != null && saved.isNotEmpty) {
       state = saved;
     } else {
-      // Default to clean customizable empty slots for 7 days
       _createEmpty7DayPlan();
+    }
+
+    // Pull shared family plan if in a family
+    await pullFromCloud();
+  }
+
+  Future<void> pullFromCloud() async {
+    try {
+      final family = _ref.read(familyProvider);
+      if (family == null || family.cloudId == null) return;
+      final data = await FamilyCloudService.fetchFullCloudData(family.cloudId!);
+      if (data != null && data.containsKey('mealPlan')) {
+        final cloudPlan = data['mealPlan'] as List<MealPlanDay>;
+        if (cloudPlan.isNotEmpty) {
+          state = cloudPlan;
+          await LocalStorageService.saveMealPlan(state);
+        }
+      }
+    } catch (_) {}
+  }
+
+  void setMealPlanFromCloud(List<MealPlanDay> days) {
+    if (days.isNotEmpty) {
+      state = days;
+      LocalStorageService.saveMealPlan(state);
     }
   }
 
@@ -204,6 +230,18 @@ class MealPlannerNotifier extends StateNotifier<List<MealPlanDay>> {
 
   Future<void> _persist() async {
     await LocalStorageService.saveMealPlan(state);
+
+    // Sync to Cloud if part of a family
+    try {
+      final family = _ref.read(familyProvider);
+      if (family != null && family.cloudId != null) {
+        await FamilyCloudService.updateCloudData(
+          family.cloudId!,
+          family: family,
+          mealPlan: state,
+        );
+      }
+    } catch (_) {}
   }
 }
 

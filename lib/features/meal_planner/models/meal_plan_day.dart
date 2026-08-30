@@ -48,12 +48,16 @@ class MealPlanDay {
     };
   }
 
-  factory MealPlanDay.fromJson(Map<String, dynamic> json) {
+  factory MealPlanDay.fromJson(Map<dynamic, dynamic> rawJson) {
+    final json = Map<String, dynamic>.from(rawJson);
     return MealPlanDay(
-      date: DateTime.parse(json['date'] as String),
-      slots: (json['slots'] as List<dynamic>)
-          .map((e) => MealSlot.fromJson(e as Map<String, dynamic>))
-          .toList(),
+      date: json['date'] != null
+          ? DateTime.tryParse(json['date'].toString()) ?? DateTime.now()
+          : DateTime.now(),
+      slots: (json['slots'] as List<dynamic>?)
+              ?.map((e) => MealSlot.fromJson(Map<String, dynamic>.from(e as Map)))
+              .toList() ??
+          [],
       dayTheme: json['dayTheme'] as String?,
       chefAdvice: json['chefAdvice'] as String?,
     );

@@ -8,13 +8,15 @@ import '../../fridge/models/product_item.dart';
 import '../../fridge/providers/fridge_provider.dart';
 import '../../grocery/models/grocery_item.dart';
 import '../../grocery/providers/grocery_provider.dart';
+import '../../meal_planner/models/meal_plan_day.dart';
+import '../../meal_planner/providers/meal_planner_provider.dart';
 import '../../profile/models/auth_user.dart';
 import '../../profile/providers/auth_provider.dart';
 import '../models/family_group.dart';
 import '../services/family_cloud_service.dart';
 
 class FamilyNotifier extends StateNotifier<FamilyGroup?> {
-  static const _kFamilyKey = 'sprout_family_group_v3';
+  static const _kFamilyKey = 'sprout_family_group_v4';
   final Ref _ref;
   Timer? _autoSyncTimer;
 
@@ -29,7 +31,16 @@ class FamilyNotifier extends StateNotifier<FamilyGroup?> {
     if (state != null) {
       if (state!.cloudId == null || state!.cloudId!.isEmpty) {
         try {
-          final cloudId = await FamilyCloudService.createFamilyInCloud(state!);
+          final currentFridge = _ref.read(fridgeProvider);
+          final currentGrocery = _ref.read(groceryProvider);
+          final currentMealPlan = _ref.read(mealPlannerProvider);
+
+          final cloudId = await FamilyCloudService.createFamilyInCloud(
+            state!,
+            fridge: currentFridge,
+            grocery: currentGrocery,
+            mealPlan: currentMealPlan,
+          );
           if (cloudId != null) {
             state = state!.copyWith(cloudId: cloudId);
             await _persist(state!);
@@ -52,7 +63,7 @@ class FamilyNotifier extends StateNotifier<FamilyGroup?> {
 
   void _startAutoSync() {
     _autoSyncTimer?.cancel();
-    _autoSyncTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+    _autoSyncTimer = Timer.periodic(const Duration(milliseconds: 2500), (_) {
       if (state != null && state!.cloudId != null && state!.cloudId!.isNotEmpty) {
         refreshFromCloud();
       }
@@ -66,9 +77,10 @@ class FamilyNotifier extends StateNotifier<FamilyGroup?> {
       if (fullData != null) {
         if (fullData.containsKey('family')) {
           final cloudFamily = fullData['family'] as FamilyGroup;
-          // Check if state actually updated
+          // Update state if members or names changed
           if (cloudFamily.members.length != state!.members.length ||
-              cloudFamily.name != state!.name) {
+              cloudFamily.name != state!.name ||
+              _membersChanged(cloudFamily.members, state!.members)) {
             state = cloudFamily.copyWith(cloudId: state!.cloudId);
             await _persist(state!);
           }
@@ -81,8 +93,24 @@ class FamilyNotifier extends StateNotifier<FamilyGroup?> {
           final cloudGrocery = fullData['grocery'] as List<GroceryItem>;
           _ref.read(groceryProvider.notifier).setGroceryFromCloud(cloudGrocery);
         }
+        if (fullData.containsKey('mealPlan')) {
+          final cloudMealPlan = fullData['mealPlan'] as List<MealPlanDay>;
+          if (cloudMealPlan.isNotEmpty) {
+            _ref.read(mealPlannerProvider.notifier).setMealPlanFromCloud(cloudMealPlan);
+          }
+        }
       }
     } catch (_) {}
+  }
+
+  bool _membersChanged(List<FamilyMember> a, List<FamilyMember> b) {
+    if (a.length != b.length) return true;
+    for (int i = 0; i < a.length; i++) {
+      if (a[i].id != b[i].id || a[i].name != b[i].name || a[i].avatarUrl != b[i].avatarUrl) {
+        return true;
+      }
+    }
+    return false;
   }
 
   Future<void> _loadFromStorage() async {
@@ -90,7 +118,7 @@ class FamilyNotifier extends StateNotifier<FamilyGroup?> {
       final prefs = await SharedPreferences.getInstance();
       final raw = prefs.getString(_kFamilyKey);
       if (raw != null) {
-        final decoded = jsonDecode(raw) as Map<String, dynamic>;
+        final decoded = jsonDecode(raw) as Map<dynamic, dynamic>;
         state = FamilyGroup.fromJson(decoded);
       }
     } catch (_) {}
@@ -127,19 +155,20 @@ class FamilyNotifier extends StateNotifier<FamilyGroup?> {
       ],
     );
 
-    // Save to Cloud with current fridge and grocery
+    // Save to Cloud with current fridge, grocery, and meal plan
     final currentFridge = _ref.read(fridgeProvider);
     final currentGrocery = _ref.read(groceryProvider);
+    final currentMealPlan = _ref.read(mealPlannerProvider);
 
-    final cloudId = await FamilyCloudService.createFamilyInCloud(family);
+    final cloudId = await FamilyCloudService.createFamilyInCloud(
+      family,
+      fridge: currentFridge,
+      grocery: currentGrocery,
+      mealPlan: currentMealPlan,
+    );
+
     if (cloudId != null) {
       family = family.copyWith(cloudId: cloudId);
-      await FamilyCloudService.updateCloudData(
-        cloudId,
-        family: family,
-        fridge: currentFridge,
-        grocery: currentGrocery,
-      );
     }
 
     state = family;
@@ -178,7 +207,7 @@ class FamilyNotifier extends StateNotifier<FamilyGroup?> {
       state = finalFamily;
       await _persist(finalFamily);
 
-      // Fetch shared inventory
+      // Fetch shared inventory and meal plan into joiner's app
       final fullData = await FamilyCloudService.fetchFullCloudData(code);
       if (fullData != null) {
         if (fullData.containsKey('fridge')) {
@@ -186,6 +215,9 @@ class FamilyNotifier extends StateNotifier<FamilyGroup?> {
         }
         if (fullData.containsKey('grocery')) {
           _ref.read(groceryProvider.notifier).setGroceryFromCloud(fullData['grocery'] as List<GroceryItem>);
+        }
+        if (fullData.containsKey('mealPlan')) {
+          _ref.read(mealPlannerProvider.notifier).setMealPlanFromCloud(fullData['mealPlan'] as List<MealPlanDay>);
         }
       }
       _startAutoSync();

@@ -2,13 +2,19 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../../fridge/models/product_item.dart';
 import '../../grocery/models/grocery_item.dart';
+import '../../meal_planner/models/meal_plan_day.dart';
 import '../models/family_group.dart';
 
 class FamilyCloudService {
   static const _baseUrl = 'https://api.restful-api.dev/objects';
 
   /// Save newly created family to cloud and return the cloud object ID
-  static Future<String?> createFamilyInCloud(FamilyGroup family) async {
+  static Future<String?> createFamilyInCloud(
+    FamilyGroup family, {
+    List<ProductItem>? fridge,
+    List<GroceryItem>? grocery,
+    List<MealPlanDay>? mealPlan,
+  }) async {
     try {
       final response = await http.post(
         Uri.parse(_baseUrl),
@@ -17,8 +23,11 @@ class FamilyCloudService {
           'name': 'sprout_fam_${family.inviteCode}',
           'data': {
             ...family.toJson(),
-            'fridge': [],
-            'grocery': [],
+            'fridge': (fridge ?? []).map((p) => p.toJson()).toList(),
+            'grocery': (grocery ?? []).map((g) => g.toJson()).toList(),
+            'mealPlan': (mealPlan ?? []).map((m) => m.toJson()).toList(),
+            'version': 1,
+            'lastUpdated': DateTime.now().millisecondsSinceEpoch,
           },
         }),
       ).timeout(const Duration(seconds: 8));
@@ -31,25 +40,7 @@ class FamilyCloudService {
     return null;
   }
 
-  /// Fetch family from cloud by cloudId
-  static Future<FamilyGroup?> fetchFamilyFromCloud(String cloudId) async {
-    try {
-      final response = await http.get(
-        Uri.parse('$_baseUrl/$cloudId'),
-      ).timeout(const Duration(seconds: 8));
-
-      if (response.statusCode == 200) {
-        final decoded = jsonDecode(response.body) as Map<dynamic, dynamic>;
-        if (decoded.containsKey('data')) {
-          final data = Map<String, dynamic>.from(decoded['data'] as Map);
-          return FamilyGroup.fromJson(data);
-        }
-      }
-    } catch (_) {}
-    return null;
-  }
-
-  /// Fetch full cloud package: family, fridge, grocery
+  /// Fetch full cloud package: family, fridge, grocery, mealPlan
   static Future<Map<String, dynamic>?> fetchFullCloudData(String cloudId) async {
     try {
       final response = await http.get(
@@ -72,10 +63,17 @@ class FamilyCloudService {
                   .toList() ??
               [];
 
+          final List<MealPlanDay> mealPlan = (data['mealPlan'] as List<dynamic>?)
+                  ?.map((item) => MealPlanDay.fromJson(item as Map))
+                  .toList() ??
+              [];
+
           return {
             'family': family,
             'fridge': fridge,
             'grocery': grocery,
+            'mealPlan': mealPlan,
+            'version': (data['version'] as num?)?.toInt() ?? 1,
           };
         }
       }
@@ -83,22 +81,25 @@ class FamilyCloudService {
     return null;
   }
 
-  /// Update family and shared inventory in cloud
+  /// Update family, shared inventory, and meal plan in cloud
   static Future<bool> updateCloudData(
     String cloudId, {
     FamilyGroup? family,
     List<ProductItem>? fridge,
     List<GroceryItem>? grocery,
+    List<MealPlanDay>? mealPlan,
   }) async {
     try {
       Map<String, dynamic>? existingData;
-      if (family == null || fridge == null || grocery == null) {
+      if (family == null || fridge == null || grocery == null || mealPlan == null) {
         existingData = await fetchFullCloudData(cloudId);
       }
 
       final currentFamily = family ?? existingData?['family'] as FamilyGroup?;
       final currentFridge = fridge ?? existingData?['fridge'] as List<ProductItem>? ?? [];
       final currentGrocery = grocery ?? existingData?['grocery'] as List<GroceryItem>? ?? [];
+      final currentMealPlan = mealPlan ?? existingData?['mealPlan'] as List<MealPlanDay>? ?? [];
+      final currentVersion = ((existingData?['version'] as num?)?.toInt() ?? 1) + 1;
 
       if (currentFamily == null) return false;
 
@@ -111,6 +112,9 @@ class FamilyCloudService {
             ...currentFamily.toJson(),
             'fridge': currentFridge.map((p) => p.toJson()).toList(),
             'grocery': currentGrocery.map((g) => g.toJson()).toList(),
+            'mealPlan': currentMealPlan.map((m) => m.toJson()).toList(),
+            'version': currentVersion,
+            'lastUpdated': DateTime.now().millisecondsSinceEpoch,
           },
         }),
       ).timeout(const Duration(seconds: 8));
@@ -143,6 +147,7 @@ class FamilyCloudService {
         family: updatedFamily,
         fridge: full['fridge'] as List<ProductItem>?,
         grocery: full['grocery'] as List<GroceryItem>?,
+        mealPlan: full['mealPlan'] as List<MealPlanDay>?,
       );
       return updatedFamily;
     } catch (_) {

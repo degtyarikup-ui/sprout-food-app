@@ -77,11 +77,12 @@ class MealSlot {
     };
   }
 
-  factory MealSlot.fromJson(Map<String, dynamic> json) {
+  factory MealSlot.fromJson(Map<dynamic, dynamic> rawJson) {
+    final json = Map<String, dynamic>.from(rawJson);
     return MealSlot(
       id: json['id'] as String?,
-      type: MealType.values.byName(json['type'] as String),
-      recipe: json['recipe'] != null ? Recipe.fromJson(json['recipe'] as Map<String, dynamic>) : null,
+      type: MealType.values.byName(json['type'] as String? ?? 'breakfast'),
+      recipe: json['recipe'] != null ? Recipe.fromJson(Map<String, dynamic>.from(json['recipe'] as Map)) : null,
       isCompleted: json['isCompleted'] as bool? ?? false,
       prepAlert: json['prepAlert'] as String?,
       servings: json['servings'] as int? ?? 2,
