@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
 import '../fridge/screens/fridge_screen.dart';
-import '../grocery/screens/grocery_screen.dart';
 import '../meal_planner/screens/meal_planner_screen.dart';
 import '../profile/screens/profile_screen.dart';
 import '../recipes/screens/recipes_screen.dart';
@@ -19,19 +18,18 @@ class MainScaffold extends ConsumerWidget {
     final currentTab = ref.watch(currentTabProvider);
     final isDarkScreen = currentTab == 1; // Tab 1 = Лента (Recipes)
 
-    // 5 items: План, Лента, Продукты, Покупки, Профиль
+    // 4 clean items: План, Лента, Продукты (включая Покупки), Профиль
     final List<Widget> screens = const [
       MealPlannerScreen(), // 0: План
       RecipesScreen(),     // 1: Лента
       FridgeScreen(),      // 2: Продукты
-      GroceryScreen(),     // 3: Покупки
-      ProfileScreen(),     // 4: Профиль
+      ProfileScreen(),     // 3: Профиль
     ];
 
     return Scaffold(
       backgroundColor: isDarkScreen ? Colors.black : AppColors.background,
       body: IndexedStack(
-        index: currentTab,
+        index: currentTab.clamp(0, screens.length - 1),
         children: screens,
       ),
       bottomNavigationBar: AnimatedContainer(
@@ -76,19 +74,10 @@ class MainScaffold extends ConsumerWidget {
                 _buildNavItem(
                   ref: ref,
                   index: 3,
-                  icon: Icons.shopping_bag_outlined,
-                  activeIcon: Icons.shopping_bag_rounded,
-                  label: 'Покупки',
-                  isSelected: currentTab == 3,
-                  isDarkScreen: isDarkScreen,
-                ),
-                _buildNavItem(
-                  ref: ref,
-                  index: 4,
                   icon: Icons.person_outline_rounded,
                   activeIcon: Icons.person_rounded,
                   label: 'Профиль',
-                  isSelected: currentTab == 4,
+                  isSelected: currentTab == 3,
                   isDarkScreen: isDarkScreen,
                 ),
               ],
@@ -124,7 +113,7 @@ class MainScaffold extends ConsumerWidget {
       splashColor: Colors.transparent,
       highlightColor: Colors.transparent,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 16),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
