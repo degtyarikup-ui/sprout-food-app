@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -15,6 +16,7 @@ import '../services/family_cloud_service.dart';
 class FamilyNotifier extends StateNotifier<FamilyGroup?> {
   static const _kFamilyKey = 'sprout_family_group_v2';
   final Ref _ref;
+  Timer? _autoSyncTimer;
 
   FamilyNotifier(this._ref) : super(null) {
     _init();
@@ -23,9 +25,10 @@ class FamilyNotifier extends StateNotifier<FamilyGroup?> {
   Future<void> _init() async {
     await _loadFromStorage();
 
-    // 1. If we have a cloudId, refresh from cloud
+    // 1. If we have a cloudId, refresh from cloud immediately & start auto-sync
     if (state != null && state!.cloudId != null) {
       await refreshFromCloud();
+      _startAutoSync();
     }
 
     // 2. Check if launched via Telegram invite link (e.g. start_param = join_ff808181...)
@@ -37,6 +40,15 @@ class FamilyNotifier extends StateNotifier<FamilyGroup?> {
     }
   }
 
+  void _startAutoSync() {
+    _autoSyncTimer?.cancel();
+    _autoSyncTimer = Timer.periodic(const Duration(seconds: 4), (_) {
+      if (state != null && state!.cloudId != null) {
+        refreshFromCloud();
+      }
+    });
+  }
+
   Future<void> refreshFromCloud() async {
     if (state == null || state!.cloudId == null) return;
     try {
@@ -44,6 +56,7 @@ class FamilyNotifier extends StateNotifier<FamilyGroup?> {
       if (fullData != null) {
         if (fullData.containsKey('family')) {
           final cloudFamily = fullData['family'] as FamilyGroup;
+          // Only update state if members count or data changed to avoid UI re-render jitter
           state = cloudFamily.copyWith(cloudId: state!.cloudId);
           await _persist(state!);
         }
@@ -118,6 +131,7 @@ class FamilyNotifier extends StateNotifier<FamilyGroup?> {
 
     state = family;
     await _persist(family);
+    _startAutoSync();
     return family;
   }
 
@@ -163,6 +177,7 @@ class FamilyNotifier extends StateNotifier<FamilyGroup?> {
             _ref.read(groceryProvider.notifier).setGroceryFromCloud(fullData['grocery'] as List<GroceryItem>);
           }
         }
+        _startAutoSync();
         return true;
       }
     }
@@ -191,6 +206,7 @@ class FamilyNotifier extends StateNotifier<FamilyGroup?> {
 
     state = joinedFamily;
     await _persist(joinedFamily);
+    _startAutoSync();
     return true;
   }
 
@@ -220,6 +236,7 @@ class FamilyNotifier extends StateNotifier<FamilyGroup?> {
   }
 
   Future<void> leaveFamily() async {
+    _autoSyncTimer?.cancel();
     state = null;
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -232,6 +249,12 @@ class FamilyNotifier extends StateNotifier<FamilyGroup?> {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_kFamilyKey, jsonEncode(family.toJson()));
     } catch (_) {}
+  }
+
+  @override
+  void dispose() {
+    _autoSyncTimer?.cancel();
+    super.dispose();
   }
 }
 
