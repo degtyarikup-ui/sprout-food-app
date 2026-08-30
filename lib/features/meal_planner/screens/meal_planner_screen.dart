@@ -7,6 +7,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../analytics/providers/eco_savings_provider.dart';
 import '../../analytics/screens/eco_analytics_screen.dart';
+import '../../family/providers/family_provider.dart';
 import '../../recipes/models/recipe.dart';
 import '../../recipes/providers/recipes_provider.dart';
 import '../../recipes/screens/recipe_detail_screen.dart';
@@ -156,6 +157,7 @@ class _MealPlannerScreenState extends ConsumerState<MealPlannerScreen> {
     final mealPlan = ref.watch(mealPlannerProvider);
     final selectedDayIndex = ref.watch(selectedDayIndexProvider);
     final ecoStats = ref.watch(ecoSavingsProvider);
+    final family = ref.watch(familyProvider);
 
     if (mealPlan.isEmpty) {
       return const Scaffold(
@@ -176,7 +178,32 @@ class _MealPlannerScreenState extends ConsumerState<MealPlannerScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: Text('План питания', style: AppTypography.displayMedium),
+        title: Row(
+          children: [
+            Text('План питания', style: AppTypography.displayMedium),
+            if (family != null) ...[
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.family_restroom_rounded, size: 12, color: AppColors.primary),
+                    const SizedBox(width: 4),
+                    Text(
+                      family.name,
+                      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: AppColors.primary),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
         actions: [
           // Auto-Plan AI Chef Button
           Container(

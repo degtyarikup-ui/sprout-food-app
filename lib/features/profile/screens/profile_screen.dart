@@ -4,6 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/services/gemini_ai_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/widgets/app_avatar.dart';
+import '../../family/providers/family_provider.dart';
+import '../../family/screens/family_modals.dart';
 import '../../onboarding/screens/onboarding_quiz_screen.dart';
 import '../../premium/providers/premium_provider.dart';
 import '../../premium/screens/paywall_modal.dart';
@@ -97,6 +100,7 @@ class ProfileScreen extends ConsumerWidget {
     final user = ref.watch(authProvider);
     final premium = ref.watch(premiumProvider);
     final userPrefs = ref.watch(userPreferencesProvider);
+    final family = ref.watch(familyProvider);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -107,7 +111,7 @@ class ProfileScreen extends ConsumerWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         child: Column(
           children: [
-            // ── User Header Card ───────────────────────────────────────
+            // ── 1. User Header Card ────────────────────────────────────
             Container(
               padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
@@ -117,22 +121,12 @@ class ProfileScreen extends ConsumerWidget {
               child: user != null
                   ? Row(
                       children: [
-                        CircleAvatar(
-                          radius: 28,
-                          backgroundColor: AppColors.primary.withValues(alpha: 0.15),
-                          backgroundImage: user.photoUrl != null && user.photoUrl!.isNotEmpty
-                              ? NetworkImage(user.photoUrl!)
-                              : null,
-                          child: user.photoUrl == null || user.photoUrl!.isEmpty
-                              ? Text(
-                                  user.displayName.isNotEmpty ? user.displayName[0].toUpperCase() : 'U',
-                                  style: const TextStyle(
-                                    fontSize: 22,
-                                    fontWeight: FontWeight.w800,
-                                    color: AppColors.primary,
-                                  ),
-                                )
-                              : null,
+                        AppAvatar(
+                          photoUrl: user.photoUrl,
+                          name: user.displayName,
+                          size: 56,
+                          showOnlineBadge: true,
+                          isOnline: true,
                         ),
                         const SizedBox(width: 14),
                         Expanded(
@@ -149,7 +143,13 @@ class ProfileScreen extends ConsumerWidget {
                                     ),
                                   ),
                                   const SizedBox(width: 6),
-                                  const Icon(Icons.check_circle_rounded, size: 16, color: AppColors.primary),
+                                  Icon(
+                                    user.authProviderType == 'telegram'
+                                        ? Icons.send_rounded
+                                        : Icons.check_circle_rounded,
+                                    size: 16,
+                                    color: AppColors.primary,
+                                  ),
                                 ],
                               ),
                               const SizedBox(height: 2),
@@ -158,6 +158,20 @@ class ProfileScreen extends ConsumerWidget {
                                 style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
                                 overflow: TextOverflow.ellipsis,
                               ),
+                              if (user.authProviderType == 'telegram') ...[
+                                const SizedBox(height: 4),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primary.withValues(alpha: 0.12),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: const Text(
+                                    'Telegram Mini App',
+                                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: AppColors.primary),
+                                  ),
+                                ),
+                              ],
                             ],
                           ),
                         ),
@@ -176,30 +190,262 @@ class ProfileScreen extends ConsumerWidget {
                           style: TextStyle(fontSize: 12, color: AppColors.textSecondary, height: 1.3),
                         ),
                         const SizedBox(height: 14),
-                        SizedBox(
-                          width: double.infinity,
-                          height: 46,
-                          child: ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.surfaceMuted,
-                              foregroundColor: AppColors.textPrimary,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                              elevation: 0,
+                        Row(
+                          children: [
+                            Expanded(
+                              child: SizedBox(
+                                height: 46,
+                                child: ElevatedButton.icon(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppColors.surfaceMuted,
+                                    foregroundColor: AppColors.textPrimary,
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                    elevation: 0,
+                                  ),
+                                  icon: const Icon(Icons.g_mobiledata_rounded, size: 24, color: AppColors.primary),
+                                  label: const Text('Google', style: TextStyle(fontWeight: FontWeight.w700)),
+                                  onPressed: () async {
+                                    HapticFeedback.lightImpact();
+                                    await ref.read(authProvider.notifier).signInWithGoogle();
+                                  },
+                                ),
+                              ),
                             ),
-                            icon: const Icon(Icons.g_mobiledata_rounded, size: 24, color: AppColors.primary),
-                            label: const Text('Войти через Google', style: TextStyle(fontWeight: FontWeight.w700)),
-                            onPressed: () async {
-                              HapticFeedback.lightImpact();
-                              await ref.read(authProvider.notifier).signInWithGoogle();
-                            },
-                          ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: SizedBox(
+                                height: 46,
+                                child: ElevatedButton.icon(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppColors.primary.withValues(alpha: 0.12),
+                                    foregroundColor: AppColors.primary,
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                    elevation: 0,
+                                  ),
+                                  icon: const Icon(Icons.send_rounded, size: 18, color: AppColors.primary),
+                                  label: const Text('Telegram', style: TextStyle(fontWeight: FontWeight.w700)),
+                                  onPressed: () async {
+                                    HapticFeedback.lightImpact();
+                                    await ref.read(authProvider.notifier).signInWithTelegramDemo();
+                                  },
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
             ),
             const SizedBox(height: 14),
 
-            // ── Premium Subscription Status Card ────────────────────────
+            // ── 2. Family Sharing Group Card ───────────────────────────
+            Container(
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                color: family != null
+                    ? AppColors.surface
+                    : AppColors.surface,
+                borderRadius: BorderRadius.circular(24),
+              ),
+              child: family != null
+                  ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: AppColors.primary.withValues(alpha: 0.12),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.family_restroom_rounded, size: 20, color: AppColors.primary),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Text(
+                                        family.name,
+                                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: AppColors.primary,
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                        child: Text(
+                                          '${family.members.length} чел',
+                                          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.white),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 2),
+                                  const Text(
+                                    'Общий холодильник и меню синхронизированы',
+                                    style: TextStyle(fontSize: 11, color: AppColors.primary, fontWeight: FontWeight.w600),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Members list with avatars
+                        Wrap(
+                          spacing: 12,
+                          runSpacing: 10,
+                          children: family.members.map((member) {
+                            return Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: AppColors.surfaceMuted,
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  AppAvatar(
+                                    photoUrl: member.avatarUrl,
+                                    name: member.name,
+                                    size: 26,
+                                    showOnlineBadge: true,
+                                    isOnline: member.isOnline,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    member.name,
+                                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    '(${member.role})',
+                                    style: const TextStyle(fontSize: 10, color: AppColors.textTertiary),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                        const SizedBox(height: 14),
+
+                        // Invite Partner / Manage
+                        Row(
+                          children: [
+                            Expanded(
+                              child: SizedBox(
+                                height: 42,
+                                child: ElevatedButton.icon(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppColors.primary,
+                                    foregroundColor: AppColors.primaryForeground,
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                    elevation: 0,
+                                  ),
+                                  icon: const Icon(Icons.share_rounded, size: 16),
+                                  label: const Text('Пригласить партнера', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12)),
+                                  onPressed: () {
+                                    HapticFeedback.lightImpact();
+                                    FamilyModals.showInvitePartner(context, ref);
+                                  },
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            IconButton(
+                              icon: const Icon(Icons.exit_to_app_rounded, size: 20, color: AppColors.textTertiary),
+                              tooltip: 'Покинуть семью',
+                              onPressed: () async {
+                                HapticFeedback.mediumImpact();
+                                await ref.read(familyProvider.notifier).leaveFamily();
+                              },
+                            ),
+                          ],
+                        ),
+                      ],
+                    )
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: AppColors.primary.withValues(alpha: 0.12),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.family_restroom_rounded, size: 20, color: AppColors.primary),
+                            ),
+                            const SizedBox(width: 12),
+                            const Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('Семейный доступ', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
+                                SizedBox(height: 2),
+                                Text(
+                                  'Совместный холодильник и меню для двоих',
+                                  style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 14),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: SizedBox(
+                                height: 42,
+                                child: ElevatedButton(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppColors.primary,
+                                    foregroundColor: AppColors.primaryForeground,
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                    elevation: 0,
+                                  ),
+                                  onPressed: () {
+                                    HapticFeedback.lightImpact();
+                                    FamilyModals.showCreateFamily(context, ref);
+                                  },
+                                  child: const Text('Создать семью', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12)),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: SizedBox(
+                                height: 42,
+                                child: ElevatedButton(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppColors.surfaceMuted,
+                                    foregroundColor: AppColors.textPrimary,
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                    elevation: 0,
+                                  ),
+                                  onPressed: () {
+                                    HapticFeedback.lightImpact();
+                                    FamilyModals.showJoinFamily(context, ref);
+                                  },
+                                  child: const Text('Войти по коду', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12)),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+            ),
+            const SizedBox(height: 14),
+
+            // ── 3. Premium Subscription Status Card ────────────────────
             Container(
               padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
@@ -289,7 +535,7 @@ class ProfileScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 16),
 
-            // ── Settings Sections ──────────────────────────────────────
+            // ── 4. Settings Sections ───────────────────────────────────
             Container(
               decoration: BoxDecoration(
                 color: AppColors.surface,
@@ -336,7 +582,7 @@ class ProfileScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 16),
 
-            // ── Logout Button ──────────────────────────────────────────
+            // ── 5. Logout Button ───────────────────────────────────────
             if (user != null)
               Container(
                 decoration: BoxDecoration(

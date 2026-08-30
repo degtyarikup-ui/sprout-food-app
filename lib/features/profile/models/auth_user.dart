@@ -3,12 +3,16 @@ class AuthUser {
   final String displayName;
   final String email;
   final String? photoUrl;
+  final String authProviderType; // 'google' or 'telegram'
+  final String? username;
 
   const AuthUser({
     required this.id,
     required this.displayName,
     required this.email,
     this.photoUrl,
+    this.authProviderType = 'google',
+    this.username,
   });
 
   Map<String, dynamic> toJson() {
@@ -17,6 +21,8 @@ class AuthUser {
       'displayName': displayName,
       'email': email,
       'photoUrl': photoUrl,
+      'authProviderType': authProviderType,
+      'username': username,
     };
   }
 
@@ -26,6 +32,8 @@ class AuthUser {
       displayName: json['displayName'] as String? ?? 'Пользователь Sprout',
       email: json['email'] as String? ?? '',
       photoUrl: json['photoUrl'] as String?,
+      authProviderType: json['authProviderType'] as String? ?? 'google',
+      username: json['username'] as String?,
     );
   }
 }

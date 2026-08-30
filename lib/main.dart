@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'core/services/telegram_web_app_service.dart';
 import 'core/theme/app_theme.dart';
 import 'features/navigation/main_scaffold.dart';
 import 'features/onboarding/providers/onboarding_provider.dart';
@@ -9,6 +10,9 @@ import 'features/onboarding/screens/onboarding_quiz_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize Telegram WebApp SDK if running inside Telegram
+  TelegramWebAppService.init();
 
   // Set system UI overlay style
   SystemChrome.setSystemUIOverlayStyle(

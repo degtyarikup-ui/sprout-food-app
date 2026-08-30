@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../ai_scanner/screens/ai_magic_scan_screen.dart';
+import '../../family/providers/family_provider.dart';
 import '../../profile/screens/preferences_modal.dart';
 import '../models/freshness_category.dart';
 import '../models/product_item.dart';
@@ -24,6 +25,7 @@ class _FridgeScreenState extends ConsumerState<FridgeScreen> {
   @override
   Widget build(BuildContext context) {
     final fridgeItems = ref.watch(fridgeProvider);
+    final family = ref.watch(familyProvider);
 
     // Filter items
     final filteredItems = fridgeItems.where((item) {
@@ -50,9 +52,36 @@ class _FridgeScreenState extends ConsumerState<FridgeScreen> {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Холодильник', style: AppTypography.displayMedium),
+            Row(
+              children: [
+                Text('Холодильник', style: AppTypography.displayMedium),
+                if (family != null) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.family_restroom_rounded, size: 12, color: AppColors.primary),
+                        const SizedBox(width: 4),
+                        Text(
+                          family.name,
+                          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: AppColors.primary),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
+            ),
             Text(
-              '${fridgeItems.length} позиций в наличии',
+              family != null
+                  ? '${fridgeItems.length} позиций • Общий семейный доступ'
+                  : '${fridgeItems.length} позиций в наличии',
               style: AppTypography.bodySmall,
             ),
           ],
