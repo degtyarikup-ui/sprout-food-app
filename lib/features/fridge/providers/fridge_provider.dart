@@ -1,10 +1,14 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/services/local_storage_service.dart';
+import '../../family/providers/family_provider.dart';
+import '../../family/services/family_cloud_service.dart';
 import '../models/freshness_category.dart';
 import '../models/product_item.dart';
 
 class FridgeNotifier extends StateNotifier<List<ProductItem>> {
-  FridgeNotifier() : super([]) {
+  final Ref _ref;
+
+  FridgeNotifier(this._ref) : super([]) {
     _loadInitialData();
   }
 
@@ -13,10 +17,30 @@ class FridgeNotifier extends StateNotifier<List<ProductItem>> {
     if (saved != null) {
       state = saved;
     } else {
-      // Clean empty fridge for new users
       state = [];
       await _persist();
     }
+
+    // Attempt cloud pull if part of a family
+    await pullFromCloud();
+  }
+
+  Future<void> pullFromCloud() async {
+    try {
+      final family = _ref.read(familyProvider);
+      if (family == null || family.cloudId == null) return;
+      final data = await FamilyCloudService.fetchFullCloudData(family.cloudId!);
+      if (data != null && data.containsKey('fridge')) {
+        final cloudFridge = data['fridge'] as List<ProductItem>;
+        state = cloudFridge;
+        await LocalStorageService.saveFridgeItems(state);
+      }
+    } catch (_) {}
+  }
+
+  void setProductsFromCloud(List<ProductItem> items) {
+    state = items;
+    LocalStorageService.saveFridgeItems(state);
   }
 
   Future<void> addProduct(ProductItem item) async {
@@ -79,10 +103,8 @@ class FridgeNotifier extends StateNotifier<List<ProductItem>> {
         final newAmount = item.amount - deductAmount;
 
         if (newAmount > 0.05) {
-          // Reduce amount
           updatedList.add(item.copyWith(amount: newAmount));
         }
-        // If <= 0, item is fully consumed and removed from fridge!
       } else {
         updatedList.add(item);
       }
@@ -94,11 +116,19 @@ class FridgeNotifier extends StateNotifier<List<ProductItem>> {
 
   Future<void> _persist() async {
     await LocalStorageService.saveFridgeItems(state);
+
+    // Sync to Cloud if part of a family
+    try {
+      final family = _ref.read(familyProvider);
+      if (family != null && family.cloudId != null) {
+        await FamilyCloudService.updateCloudData(family.cloudId!, fridge: state);
+      }
+    } catch (_) {}
   }
 }
 
 final fridgeProvider = StateNotifierProvider<FridgeNotifier, List<ProductItem>>((ref) {
-  return FridgeNotifier();
+  return FridgeNotifier(ref);
 });
 
 /// Urgent items provider (expiring in 1-2 days)

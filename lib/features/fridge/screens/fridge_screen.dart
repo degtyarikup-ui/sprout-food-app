@@ -270,37 +270,10 @@ class _FridgeScreenState extends ConsumerState<FridgeScreen> {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Text('Продукты', style: AppTypography.displayMedium),
-                if (family != null) ...[
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.family_restroom_rounded, size: 12, color: AppColors.primary),
-                        const SizedBox(width: 4),
-                        Text(
-                          family.name,
-                          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: AppColors.primary),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ],
-            ),
+            Text('Продукты', style: AppTypography.displayMedium),
             Text(
               _selectedTab == 0
-                  ? (family != null
-                      ? '${fridgeItems.length} позиций • Общий доступ'
-                      : '${fridgeItems.length} позиций в наличии')
+                  ? '${fridgeItems.length} позиций в наличии'
                   : 'Купить: $unboughtGroceryCount поз. • ~${totalGroceryCost.round()} ₽',
               style: AppTypography.bodySmall,
             ),
@@ -308,6 +281,24 @@ class _FridgeScreenState extends ConsumerState<FridgeScreen> {
         ),
         actions: [
           if (_selectedTab == 0) ...[
+            if (family != null)
+              IconButton(
+                icon: const Icon(Icons.sync_rounded, size: 22, color: AppColors.primary),
+                tooltip: 'Синхронизировать с семьей',
+                onPressed: () async {
+                  HapticFeedback.lightImpact();
+                  await ref.read(familyProvider.notifier).refreshFromCloud();
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Холодильник и покупки синхронизированы с семьей!'),
+                        backgroundColor: AppColors.primary,
+                        duration: Duration(seconds: 2),
+                      ),
+                    );
+                  }
+                },
+              ),
             if (fridgeItems.isNotEmpty)
               IconButton(
                 icon: const Icon(Icons.delete_sweep_rounded, size: 22, color: AppColors.textTertiary),

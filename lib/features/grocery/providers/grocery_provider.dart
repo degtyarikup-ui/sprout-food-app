@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/services/local_storage_service.dart';
+import '../../family/providers/family_provider.dart';
+import '../../family/services/family_cloud_service.dart';
 import '../../fridge/models/product_item.dart';
 import '../../fridge/providers/fridge_provider.dart';
 import '../../meal_planner/providers/meal_planner_provider.dart';
@@ -20,6 +22,27 @@ class GroceryNotifier extends StateNotifier<List<GroceryItem>> {
       state = [];
       await _persist();
     }
+
+    // Attempt cloud pull if part of a family
+    await pullFromCloud();
+  }
+
+  Future<void> pullFromCloud() async {
+    try {
+      final family = _ref.read(familyProvider);
+      if (family == null || family.cloudId == null) return;
+      final data = await FamilyCloudService.fetchFullCloudData(family.cloudId!);
+      if (data != null && data.containsKey('grocery')) {
+        final cloudGrocery = data['grocery'] as List<GroceryItem>;
+        state = cloudGrocery;
+        await LocalStorageService.saveGroceryItems(state);
+      }
+    } catch (_) {}
+  }
+
+  void setGroceryFromCloud(List<GroceryItem> items) {
+    state = items;
+    LocalStorageService.saveGroceryItems(state);
   }
 
   void toggleItem(String id) {
@@ -27,7 +50,7 @@ class GroceryNotifier extends StateNotifier<List<GroceryItem>> {
       if (item.id == id) {
         final updated = item.copyWith(isChecked: !item.isChecked);
         
-        // If checked, automatically offer/add to fridge with estimated shelf life
+        // If checked, automatically add to fridge with estimated shelf life
         if (updated.isChecked) {
           final now = DateTime.now();
           _ref.read(fridgeProvider.notifier).addProduct(
@@ -108,7 +131,6 @@ class GroceryNotifier extends StateNotifier<List<GroceryItem>> {
           });
 
           if (!isPresent && !ing.isOptional) {
-            // Check if already in list
             final alreadyInList = state.any((g) => g.name.toLowerCase() == ingName);
             if (!alreadyInList) {
               newItems.add(
@@ -164,6 +186,14 @@ class GroceryNotifier extends StateNotifier<List<GroceryItem>> {
 
   Future<void> _persist() async {
     await LocalStorageService.saveGroceryItems(state);
+
+    // Sync to Cloud if part of a family
+    try {
+      final family = _ref.read(familyProvider);
+      if (family != null && family.cloudId != null) {
+        await FamilyCloudService.updateCloudData(family.cloudId!, grocery: state);
+      }
+    } catch (_) {}
   }
 }
 

@@ -3,6 +3,10 @@ import 'dart:math';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/services/telegram_web_app_service.dart';
+import '../../fridge/models/product_item.dart';
+import '../../fridge/providers/fridge_provider.dart';
+import '../../grocery/models/grocery_item.dart';
+import '../../grocery/providers/grocery_provider.dart';
 import '../../profile/models/auth_user.dart';
 import '../../profile/providers/auth_provider.dart';
 import '../models/family_group.dart';
@@ -36,10 +40,21 @@ class FamilyNotifier extends StateNotifier<FamilyGroup?> {
   Future<void> refreshFromCloud() async {
     if (state == null || state!.cloudId == null) return;
     try {
-      final cloudFamily = await FamilyCloudService.fetchFamilyFromCloud(state!.cloudId!);
-      if (cloudFamily != null) {
-        state = cloudFamily.copyWith(cloudId: state!.cloudId);
-        await _persist(state!);
+      final fullData = await FamilyCloudService.fetchFullCloudData(state!.cloudId!);
+      if (fullData != null) {
+        if (fullData.containsKey('family')) {
+          final cloudFamily = fullData['family'] as FamilyGroup;
+          state = cloudFamily.copyWith(cloudId: state!.cloudId);
+          await _persist(state!);
+        }
+        if (fullData.containsKey('fridge')) {
+          final cloudFridge = fullData['fridge'] as List<ProductItem>;
+          _ref.read(fridgeProvider.notifier).setProductsFromCloud(cloudFridge);
+        }
+        if (fullData.containsKey('grocery')) {
+          final cloudGrocery = fullData['grocery'] as List<GroceryItem>;
+          _ref.read(groceryProvider.notifier).setGroceryFromCloud(cloudGrocery);
+        }
       }
     } catch (_) {}
   }
@@ -86,10 +101,19 @@ class FamilyNotifier extends StateNotifier<FamilyGroup?> {
       ],
     );
 
-    // Save to Cloud
+    // Save to Cloud with current fridge and grocery
+    final currentFridge = _ref.read(fridgeProvider);
+    final currentGrocery = _ref.read(groceryProvider);
+
     final cloudId = await FamilyCloudService.createFamilyInCloud(family);
     if (cloudId != null) {
       family = family.copyWith(cloudId: cloudId);
+      await FamilyCloudService.updateCloudData(
+        cloudId,
+        family: family,
+        fridge: currentFridge,
+        grocery: currentGrocery,
+      );
     }
 
     state = family;
@@ -128,6 +152,17 @@ class FamilyNotifier extends StateNotifier<FamilyGroup?> {
         final finalFamily = cloudFamily.copyWith(cloudId: code);
         state = finalFamily;
         await _persist(finalFamily);
+
+        // Fetch shared inventory into joiner's app
+        final fullData = await FamilyCloudService.fetchFullCloudData(code);
+        if (fullData != null) {
+          if (fullData.containsKey('fridge')) {
+            _ref.read(fridgeProvider.notifier).setProductsFromCloud(fullData['fridge'] as List<ProductItem>);
+          }
+          if (fullData.containsKey('grocery')) {
+            _ref.read(groceryProvider.notifier).setGroceryFromCloud(fullData['grocery'] as List<GroceryItem>);
+          }
+        }
         return true;
       }
     }
@@ -168,7 +203,7 @@ class FamilyNotifier extends StateNotifier<FamilyGroup?> {
       FamilyMember(
         id: 'partner_demo_2',
         name: 'Партнер',
-        avatarUrl: null, // clean initials avatar
+        avatarUrl: null,
         role: 'Партнер',
         isOnline: true,
         joinedAt: DateTime.now(),
@@ -180,7 +215,7 @@ class FamilyNotifier extends StateNotifier<FamilyGroup?> {
     await _persist(updated);
 
     if (state!.cloudId != null) {
-      await FamilyCloudService.updateFamilyInCloud(state!.cloudId!, updated);
+      await FamilyCloudService.updateCloudData(state!.cloudId!, family: updated);
     }
   }
 
