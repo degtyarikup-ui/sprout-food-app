@@ -101,4 +101,14 @@ class TelegramWebAppService {
     if (!kIsWeb) return null;
     return tma_helper.getTelegramStartParam();
   }
+
+  static void openTelegramLink(String url) {
+    if (!kIsWeb) return;
+    tma_helper.openTelegramLink(url);
+  }
+
+  static void openShareDialog({required String url, required String text}) {
+    if (!kIsWeb) return;
+    tma_helper.openTelegramShare(url, text);
+  }
 }

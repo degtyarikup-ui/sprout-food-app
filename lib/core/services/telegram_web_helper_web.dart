@@ -38,6 +38,27 @@ void initTelegramApp() {
   } catch (_) {}
 }
 
+void openTelegramLink(String url) {
+  try {
+    if (isInsideTelegram()) {
+      final tg = _window.getProperty('Telegram'.toJS) as JSObject;
+      final webApp = tg.getProperty('WebApp'.toJS) as JSObject;
+      if (webApp.has('openTelegramLink')) {
+        webApp.callMethod('openTelegramLink'.toJS, url.toJS);
+        return;
+      }
+    }
+    if (_window.has('open')) {
+      _window.callMethod('open'.toJS, url.toJS, '_blank'.toJS);
+    }
+  } catch (_) {}
+}
+
+void openTelegramShare(String url, String text) {
+  final shareUrl = 'https://t.me/share/url?url=${Uri.encodeComponent(url)}&text=${Uri.encodeComponent(text)}';
+  openTelegramLink(shareUrl);
+}
+
 String? getTelegramUserJson() {
   try {
     if (isInsideTelegram()) {
